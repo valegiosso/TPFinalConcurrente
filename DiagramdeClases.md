@@ -1,10 +1,3 @@
-# Diagrama de Clases - TP Final Programación Concurrente 2026
-
-Este archivo contiene el diagrama de clases que modela el sistema de procesamiento de pagos (PSP) basado en la Red de Petri descripta en el enunciado y la secuencia de llamadas definida en [DiagramdeSecuencia.md](file:///d:/facultad/concurrente/TPFinalConcurrente/DiagramdeSecuencia.md).
-
-## Diagrama en Mermaid
-
-```mermaid
 classDiagram
     class MonitorInterface {
         <<interface>>
@@ -15,10 +8,19 @@ classDiagram
         -RdP rdp
         -Mutex mutex
         -Politica politica
+        -Logger logger
+        -int contadorInvariantes
         -boolean running
-        +Monitor(RdP rdp, Politica politica)
+        +Monitor(RdP rdp, Politica politica, Logger logger)
         +fireTransition(int transition) boolean
         +stop() void
+    }
+
+    class Logger {
+        -String archivoPath
+        +Logger(String archivoPath)
+        +escribirDisparo(int transition) void
+        +cerrarLog() void
     }
 
     class Mutex {
@@ -33,12 +35,14 @@ classDiagram
     }
 
     class RdP {
-        -Matrizi matrizI
+        -Matrizi matrizPre
+        -Matrizi matrizPost
         -VectorDeEstado vectorDeEstado
         -VectorSensibilizadas vectorSensibilizadas
-        +RdP(Matrizi matrizI, VectorDeEstado estadoInicial)
+        +RdP(Matrizi matrizPre, Matrizi matrizPost, VectorDeEstado estadoInicial)
         +disparar(int transition) boolean
-        +getMatrizIncidencia() Matrizi
+        +getMatrizPre() Matrizi
+        +getMatrizPost() Matrizi
         +getEstadoActual() VectorDeEstado
         +getVectorSensibilizadas() VectorSensibilizadas
     }
@@ -55,7 +59,8 @@ classDiagram
         -int[] marcado
         +VectorDeEstado(int[] marcadoInicial)
         +getMarcado() int[]
-        +sumarColumna(int[] columna) void
+        +restarColumna(int[] columnaPre) void
+        +sumarColumna(int[] columnaPost) void
         +verificarInvariantePlazas() boolean
     }
 
@@ -65,7 +70,7 @@ classDiagram
         +VectorSensibilizadas(int cantidadTransiciones)
         +estaSensibilizado(int transition) boolean
         +actualiceSensibilizadoT(int transition, boolean state) void
-        +update(VectorDeEstado estado, Matrizi matriz) void
+        +update(VectorDeEstado estado, Matrizi matrizPre) void
     }
 
     class SensibilizadoConTiempo {
@@ -127,11 +132,12 @@ classDiagram
     Monitor "1" *-- "1" RdP : composición
     Monitor "1" *-- "1" Mutex : composición
     Monitor "1" o-- "1" Politica : agregación
+    Monitor "1" o-- "1" Logger : agregación
     
     PoliticaAleatoria ..|> Politica : implementa
     PoliticaPriorizada ..|> Politica : implementa
     
-    RdP "1" *-- "1" Matrizi : composición
+    RdP "1" *-- "2" Matrizi : composición (Pre y Post)
     RdP "1" *-- "1" VectorDeEstado : composición
     RdP "1" *-- "1" VectorSensibilizadas : composición
     
@@ -142,20 +148,3 @@ classDiagram
     HiloProcesadorTarjetas --|> HiloBase : hereda
     HiloProcesadorTransferencias --|> HiloBase : hereda
     HiloProcesadorAltoRiesgo --|> HiloBase : hereda
-```
-
-## Relación con el Diagrama de Secuencia
-
-El diagrama de secuencia describe el flujo detallado dentro de un intento de disparo (`fireTransition`):
-1. **Hilo de Ejecución** (por ejemplo, `HiloProcesadorTarjetas`) llama a `monitor.fireTransition(t)`.
-2. El `Monitor` bloquea el acceso mediante `mutex.acquire()`.
-3. Llama a `rdp.disparar(t)` para evaluar la red:
-   - `rdp` consulta a `vectorSensibilizadas.estaSensibilizado(t)`.
-   - `vectorSensibilizadas` consulta a la instancia correspondiente de `SensibilizadoConTiempo` mediante `testVentanaTiempo()`.
-   - Si está dentro de la ventana de tiempo (`ventana == true`), se procede a actualizar el marcado.
-   - Si no está habilitado o está antes de la ventana, el hilo libera el lock (`mutex.release()`), marca el estado como esperando (`setEsperando(true)`), y duerme (`sleep`).
-4. Si la transición se dispara exitosamente (`k == true`):
-   - El estado cambia sumando la columna de la matriz de incidencia (`estado = estado + columna`).
-   - Se actualizan los índices de sensibilización de las transiciones afectadas llamando a `actualiceSensibilizadoT(t, state)` y se actualiza el `timeStamp` para las transiciones recién sensibilizadas.
-5. El monitor consulta a `Politica` para ver a qué transición habilitada y con hilos en espera debe despertar, y envía la señal a través del `Mutex` (`mutex.signal(t_seleccionada)`).
-6. El `Monitor` libera el lock con `mutex.release()`.
