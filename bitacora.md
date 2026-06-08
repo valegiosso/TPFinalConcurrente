@@ -136,7 +136,27 @@ Pendiente (TODO)
 Asignar tiempos [alfa, beta] a las transiciones temporales T2, T3, T5, T7, T8 para que la ejecución dure entre 20-40 segundos
 Probar con PoliticaPriorizada (descomentar en Main)
 Validar invariantes de transición con regex sobre el log
-¿Querés que lo agregue directamente al archivo 
 
-bitacora.md
-?
+ ---------------- ANALISIS NACHO -------------------
+
+## Análisis de inconsistencias arquitectónicas: Diagrama de Clases vs. Diagrama de Secuencia
+
+Tras la revisión transversal de los modelos UML propuestos (`DiagramdeClases.md` y la primera versión de `DiagramdeSecuencia.md`), se detectaron varias discrepancias críticas donde la secuencia de los mensajes no condecía con las responsabilidades y relaciones planteadas en el diagrama estático:
+
+1. **Omisión del Patrón Monitor y Ruptura del Encapsulamiento**
+   * **Diagrama de clases:** Define explícitamente que los hilos (`HiloBase`) interactúan con `MonitorInterface`, y la implementación `Monitor` contiene (por composición) a la `RdP`.
+   * **Diagrama de secuencias previo:** Mostraba al Actor/Hilo invocando directamente a `rdP.disparar()`. La Red de Petri no debe quedar expuesta a los hilos; debe haber un objeto central de sincronización (el Monitor) obligando a entrar por un único punto (método público).
+
+2. **Manejo Descentralizado e Incorrecto de la Exclusión Mutua (Mutex)**
+   * **Diagrama de clases:** El cerrojo y las condiciones (clase `Mutex`) pertenecen funcionalmente al estado de concurrencia y lo maneja el `Monitor`.
+   * **Diagrama de secuencias previo:** Las operaciones de control concurrente aparecían manejadas por clases analíticas. Por ejemplo, `VectorSensibilizadas` (que debería ser una estructura matemática pura) aparecía llamando a `mutex.release()` y ejecutando `sleep()`. Una estructura de validación de matriz no puede conocer sobre cerrojos del sistema. Los bloqueos se deben invocar siempre a través del `Monitor` utilizando métodos formales de variable de condición (`await()`, `signal()`).
+
+3. **Ausencia Absoluta de la Política de Resolución**
+   * **Diagrama de clases:** Se modeló el patrón Strategy mediante la interfaz `Politica` (con `PoliticaAleatoria` y `PoliticaPriorizada`). Es el core lógico del TP para resolver conflictos cuando varios invariantes convergen/compiten.
+   * **Diagrama de secuencias previo:** No se evidenciaba el uso de la política. No se invocaba la toma de decisiones para calcular qué hilo dormido en el Mutex debe ser despertado si múltiples transiciones quedaban habilitadas.
+
+4. **Falta de invocación del Logging e Invariantes**
+   * **Diagrama de clases:** Requiere componentes como `Logger` y `verificarInvariantePlazas()` en el `VectorDeEstado`.
+   * **Diagrama de secuencias previo:** Una vez actualizado el estado con éxito, no graficaba las llamadas rutinarias para asentar en el log (`escribirDisparo`) ni para auditar el cumplimiento del modelo.
+
+**Acciones Tomadas:** En función de los hallazgos descritos, se reestructuró y unificó por completo `DiagramdeSecuencia.md` para que todo el peso de orquestación (adquisición del lock, consulta matemática, registro, aplicación de políticas de despertar y liberación) recaiga fielmente sobre el objeto **Monitor**, logrando el 100% de coherencia con el Diagrama de Clases.
