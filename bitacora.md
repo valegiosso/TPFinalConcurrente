@@ -91,72 +91,48 @@ M(P0) + M(P1) + M(P2) + M(P3) + M(P4) + M(P5) + M(P6) + M(P9) = 3
 
 Analysis time: 0.003
 
+## Decisiones de Código y Refactorización Final
+Fecha de actualización: 08/06/2026
 
-## desiciones codigo
-Resumen — Implementación base del código Java
-Fecha: 06/06/2026
+### 1. Cambio Arquitectónico: De Locks a Semáforos ("Passing the Baton")
+Para lograr un cumplimiento absoluto con el Enunciado del TP Final y garantizar que la ejecución siga de forma estricta la semántica del diagrama de secuencia, se reemplazó el uso de cerrojos y condiciones (`ReentrantLock`, `Condition[]`) por Semáforos:
+- Se eliminó la clase obsoleta `Mutex.java`.
+- Se implementó la clase `Colas.java` que gestiona un arreglo de semáforos (`Semaphore[]`), uno para cada transición de la red.
+- El `Monitor.java` controla el acceso principal con un semáforo de exclusión mutua (`mutex = new Semaphore(1, true)`).
+- Cuando una transición no está sensibilizada o requiere esperar en cola, el hilo libera el mutex y hace `acquire()` en su semáforo de transición correspondiente.
+- Al disparar con éxito, el monitor decide mediante la clase `Politica` cuál hilo durmiente despertar y le hace `release()`, saliendo inmediatamente del monitor **sin liberar el mutex principal**, delegando directamente el testigo del lock al hilo despertado (semántica **Passing the Baton**).
 
-Qué se hizo
-Se creó la estructura de código base en codigo/src/monitor/ (package monitor, Java 8 vanilla) siguiendo el diagrama de clases actualizado en DiagramdeClases.md y el diagrama de secuencia en DiagramdeSecuencia.md.
+### 2. Encapsulamiento del Monitor
+Se eliminaron todos los métodos públicos del monitor que exponían el control del estado interno (como `stop()`, `isRunning()` y `getContadorInvariantes()`), dejando únicamente el método requerido por el enunciado:
+- `boolean fireTransition(int transition)` es el único método público expuesto por `MonitorInterface` y `Monitor`.
 
-Archivos creados (15 clases)
-Clase	Rol
-MonitorInterface	Interfaz con único método público fireTransition(int)
-Monitor	Monitor de concurrencia agnóstico. Gestiona Mutex, RdP, Política y Logger. Cuenta invariantes completados y detiene el sistema al llegar a 200
-Mutex	ReentrantLock (fair) + arreglo de Condition[] (una por transición)
-RdP	Red de Petri genérica. Disparo algebraico: M = M - Pre(:,t) + Post(:,t)
-Matrizi	Wrapper de int[][] para matrices Pre y Post
-VectorDeEstado	Marcado actual + verificación de invariantes de plaza (3 ecuaciones de la bitácora)
-VectorSensibilizadas	Estado de sensibilización por marcado + tiempo. Recalcula tras cada disparo
-SensibilizadoConTiempo	Ventana temporal [alfa, beta] en ms por transición
-Politica	Interfaz Strategy para resolver conflictos
-PoliticaAleatoria	Selección aleatoria entre transiciones habilitadas con hilos esperando
-PoliticaPriorizada	Prioriza flujo de alto riesgo (T4, T5); fallback aleatorio
-HiloBase	Clase abstracta base. Ejecuta sus transiciones asignadas en bucle
-HiloGenerador	Hilo de admisión (T0) / salida (T9)
-HiloProcesadorTarjetas	Flujo tarjeta: T1 → T2 → T3
-HiloProcesadorAltoRiesgo	Flujo alto riesgo: T4 → T5
-HiloProcesadorTransferencias	Flujo transferencia: T6 → T7 → T8
-Main	Orquestador: define matrices, crea componentes, arranca 5 hilos, espera con join()
-Hilos del sistema (5)
-HiloGenerador → dispara T0 (admisión)
-HiloProcesadorTarjetas → dispara T1, T2, T3
-HiloProcesadorAltoRiesgo → dispara T4, T5
-HiloProcesadorTransferencias → dispara T6, T7, T8
-HiloSalida (usa HiloGenerador) → dispara T9 (salida/liquidación)
-Datos de la red cargados
-Matrices Pre y Post extraídas de la bitácora (análisis PIPE)
-Marcado inicial: {P0=3, P1=0, ..., P7=1, P8=1, P9=0}
-Invariantes de plaza verificados después de cada disparo
-Verificación
-Compila sin errores con javac
-Ejecuta correctamente: 200 invariantes completados en ~51ms (sin tiempos temporales)
-Log generado en log_disparos.txt con formato T<n> <timestamp_ms>
-Pendiente (TODO)
-Asignar tiempos [alfa, beta] a las transiciones temporales T2, T3, T5, T7, T8 para que la ejecución dure entre 20-40 segundos
-Probar con PoliticaPriorizada (descomentar en Main)
-Validar invariantes de transición con regex sobre el log
+### 3. Mecanismo de Finalización Limpia (Wakeup en Cascada)
+Al no existir métodos públicos externos de control, para garantizar que todos los hilos durmientes finalicen limpiamente al alcanzar los 200 invariantes procesados (transición `T9` disparada 200 veces), se diseñó la finalización en cascada:
+- Cuando el monitor detecta que `contadorInvariantes >= maxInvariantes`, llama a `despertarATodosYSalir()`.
+- Este método hace `release()` de todas las colas de transiciones de forma simultánea y libera el `mutex` principal.
+- Los hilos que despiertan comprueban la condición de fin inmediatamente dentro de `fireTransition()` y retornan `false`, saliendo de sus respectivos bucles de ejecución y terminando ordenadamente sin dejar hilos huérfanos.
 
- ---------------- ANALISIS NACHO -------------------
+### 4. Componentes y Estructura Actual del Código
+El paquete `monitor` se compone de los siguientes elementos limpios:
 
-## Análisis de inconsistencias arquitectónicas: Diagrama de Clases vs. Diagrama de Secuencia
+| Clase/Interfaz | Responsabilidad |
+| :--- | :--- |
+| **MonitorInterface** | Interfaz del monitor con el método único `fireTransition(int)`. |
+| **Monitor** | Orquestador concurrente agnóstico a la Red de Petri. Controla la exclusión mutua, las esperas de hilos, los invariantes dinámicos de plazas y el conteo de finalización. |
+| **Colas** | Colección de semáforos (uno por transición) para la suspensión y reactivación de hilos. |
+| **RdP** | Red de Petri genérica. Gestiona el marcado del sistema y ejecuta los disparos matemáticos ($M_{nuevo} = M_{actual} - Pre + Post$). |
+| **Matrizi** | Clase auxiliar para operaciones y dimensiones de matrices. |
+| **VectorDeEstado** | Representa el marcado y valida activamente que se cumplan las ecuaciones de invariantes de plaza tras cada disparo. |
+| **VectorSensibilizadas** | Calcula las transiciones sensibilizadas y coordina las marcas de tiempo para transiciones temporizadas. |
+| **SensibilizadoConTiempo** | Define el intervalo de tiempo $[\alpha, \beta]$ asociado a transiciones temporizadas. |
+| **Politica** | Interfaz para la estrategia de resolución de conflictos. |
+| **PoliticaAleatoria** | Resolución de conflictos seleccionando aleatoriamente entre transiciones sensibilizadas que tienen hilos esperando. |
+| **PoliticaPriorizada** | Prioriza las transiciones del flujo de alto riesgo (`T4`, `T5`) frente a otras en conflicto. |
+| **Logger** | Escribe de manera segura y sincronizada los disparos en `log_disparos.txt`. |
+| **HiloBase** | Clase abstracta que sirve de base para los hilos de la aplicación. |
+| **HiloGenerador** | Hilo encargado del flujo de admisión (`T0`) o salida (`T9`). |
+| **HiloProcesadorTarjetas** | Hilo para el flujo secuencial `T1` $\rightarrow$ `T2` $\rightarrow$ `T3`. |
+| **HiloProcesadorAltoRiesgo** | Hilo para el flujo secuencial `T4` $\rightarrow$ `T5`. |
+| **HiloProcesadorTransferencias** | Hilo para el flujo secuencial `T6` $\rightarrow$ `T7` $\rightarrow$ `T8`. |
+| **Main** | Define matrices y marcado inicial de la red, instancia el monitor con la política elegida, inicia los hilos y espera su finalización con `join()`. |
 
-Tras la revisión transversal de los modelos UML propuestos (`DiagramdeClases.md` y la primera versión de `DiagramdeSecuencia.md`), se detectaron varias discrepancias críticas donde la secuencia de los mensajes no condecía con las responsabilidades y relaciones planteadas en el diagrama estático:
-
-1. **Omisión del Patrón Monitor y Ruptura del Encapsulamiento**
-   * **Diagrama de clases:** Define explícitamente que los hilos (`HiloBase`) interactúan con `MonitorInterface`, y la implementación `Monitor` contiene (por composición) a la `RdP`.
-   * **Diagrama de secuencias previo:** Mostraba al Actor/Hilo invocando directamente a `rdP.disparar()`. La Red de Petri no debe quedar expuesta a los hilos; debe haber un objeto central de sincronización (el Monitor) obligando a entrar por un único punto (método público).
-
-2. **Manejo Descentralizado e Incorrecto de la Exclusión Mutua (Mutex)**
-   * **Diagrama de clases:** El cerrojo y las condiciones (clase `Mutex`) pertenecen funcionalmente al estado de concurrencia y lo maneja el `Monitor`.
-   * **Diagrama de secuencias previo:** Las operaciones de control concurrente aparecían manejadas por clases analíticas. Por ejemplo, `VectorSensibilizadas` (que debería ser una estructura matemática pura) aparecía llamando a `mutex.release()` y ejecutando `sleep()`. Una estructura de validación de matriz no puede conocer sobre cerrojos del sistema. Los bloqueos se deben invocar siempre a través del `Monitor` utilizando métodos formales de variable de condición (`await()`, `signal()`).
-
-3. **Ausencia Absoluta de la Política de Resolución**
-   * **Diagrama de clases:** Se modeló el patrón Strategy mediante la interfaz `Politica` (con `PoliticaAleatoria` y `PoliticaPriorizada`). Es el core lógico del TP para resolver conflictos cuando varios invariantes convergen/compiten.
-   * **Diagrama de secuencias previo:** No se evidenciaba el uso de la política. No se invocaba la toma de decisiones para calcular qué hilo dormido en el Mutex debe ser despertado si múltiples transiciones quedaban habilitadas.
-
-4. **Falta de invocación del Logging e Invariantes**
-   * **Diagrama de clases:** Requiere componentes como `Logger` y `verificarInvariantePlazas()` en el `VectorDeEstado`.
-   * **Diagrama de secuencias previo:** Una vez actualizado el estado con éxito, no graficaba las llamadas rutinarias para asentar en el log (`escribirDisparo`) ni para auditar el cumplimiento del modelo.
-
-**Acciones Tomadas:** En función de los hallazgos descritos, se reestructuró y unificó por completo `DiagramdeSecuencia.md` para que todo el peso de orquestación (adquisición del lock, consulta matemática, registro, aplicación de políticas de despertar y liberación) recaiga fielmente sobre el objeto **Monitor**, logrando el 100% de coherencia con el Diagrama de Clases.
