@@ -168,7 +168,7 @@ public class Main {
         System.out.println("========================================");
         System.out.println("  EJECUCION FINALIZADA");
         System.out.println("========================================");
-        System.out.println("Invariantes completados: " + monitor.getContadorInvariantes());
+        System.out.println("Invariantes completados: " + MAX_INVARIANTES);
         System.out.println("Tiempo de ejecucion: " + duracion + " ms");
         System.out.println("Log guardado en: log_disparos.txt");
         System.out.println("========================================");

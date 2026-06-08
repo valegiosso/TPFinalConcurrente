@@ -6,14 +6,15 @@ classDiagram
 
     class Monitor {
         -RdP rdp
-        -Mutex mutex
+        -Semaphore mutex
+        -Colas colas
         -Politica politica
         -Logger logger
         -int contadorInvariantes
-        -boolean running
-        +Monitor(RdP rdp, Politica politica, Logger logger)
+        -int maxInvariantes
+        -int transicionSalida
+        +Monitor(RdP rdp, Politica politica, Logger logger, int maxInvariantes, int transicionSalida)
         +fireTransition(int transition) boolean
-        +stop() void
     }
 
     class Logger {
@@ -23,15 +24,12 @@ classDiagram
         +cerrarLog() void
     }
 
-    class Mutex {
-        -ReentrantLock lock
-        -Condition[] conds
-        +Mutex(int cantidadTransiciones)
-        +acquire() void
-        +release() void
-        +await(int transition) void
-        +signal(int transition) void
-        +signalAll() void
+    class Colas {
+        -Semaphore[] semaforos
+        +Colas(int cantidadTransiciones)
+        +acquire(int transition) void
+        +release(int transition) void
+        +quienesEstan() boolean[]
     }
 
     class RdP {
@@ -130,7 +128,8 @@ classDiagram
     %% Relaciones
     Monitor ..|> MonitorInterface : implementa
     Monitor "1" *-- "1" RdP : composición
-    Monitor "1" *-- "1" Mutex : composición
+    Monitor "1" *-- "1" Semaphore : composición
+    Monitor "1" *-- "1" Colas : composición
     Monitor "1" o-- "1" Politica : agregación
     Monitor "1" o-- "1" Logger : agregación
     
