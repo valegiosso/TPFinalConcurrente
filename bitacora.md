@@ -136,3 +136,48 @@ El paquete `monitor` se compone de los siguientes elementos limpios:
 | **HiloProcesadorTransferencias** | Hilo para el flujo secuencial `T6` $\rightarrow$ `T7` $\rightarrow$ `T8`. |
 | **Main** | Define matrices y marcado inicial de la red, instancia el monitor con la política elegida, inicia los hilos y espera su finalización con `join()`. |
 
+## ecuaciones
+\begin{aligned}
+& \text{\textbf{1. Marcado}} \\
+& M = [m_{p_0}, m_{p_1}, m_{p_2}, \dots, m_{p_9}] \\
+& M_0 = [1, 0, 0, 0, 0, 0, 0, 1, 1, 0] \\[10pt]
+
+& \text{\textbf{2. Matriz de Incidencia}} \\
+& I = I^- - I^+ \\
+& I^+[t][p] = \text{tokens que la transición } t \text{ consume de la plaza } p \text{ (Pre)} \\
+& I^-[t][p] = \text{tokens que la transición } t \text{ produce en la plaza } p \text{ (Post)} \\
+& I[t][p] = I^-[t][p] - I^+[t][p] \\[10pt]
+
+& \text{\textbf{3. Condición de Sensibilización}} \\
+& \forall p \in P : M[p] - I^+[t][p] \geq 0 \\[10pt]
+
+& \text{\textbf{4. Ecuación de Estado}} \\
+& M' = M + I[t] = M + I^-[t] - I^+[t] \\[10pt]
+
+& \text{\textbf{5. P-invariantes}} \\
+& \text{Condición matemática: } \vec{y} \cdot I = \vec{y} \cdot (I^- - I^+) = \vec{0} \\
+& \text{Propiedad en runtime: } \vec{y} \cdot M = \vec{y} \cdot M_0 = k \quad \forall M \text{ alcanzable} \\
+& \text{Los tres P-invariantes de la red:} \\
+& y_1 \cdot M = m_{P_0}+m_{P_1}+m_{P_2}+m_{P_3}+m_{P_4}+m_{P_5}+m_{P_6}+m_{P_9} = 1 \\
+& y_2 \cdot M = m_{P_2}+m_{P_3}+m_{P_4}+m_{P_7} = 1 \\
+& y_3 \cdot M = m_{P_4}+m_{P_5}+m_{P_6}+m_{P_8} = 1 \\[10pt]
+
+& \text{\textbf{6. T-invariantes}} \\
+& \text{Condición matemática: } I \cdot \vec{x} = (I^- - I^+) \cdot \vec{x} = \vec{0} \\
+& \text{Los tres T-invariantes de la red:} \\
+& x_1 = \{T_0, T_1, T_2, T_3, T_9\} \quad \text{(flujo tarjeta)} \\
+& x_2 = \{T_0, T_4, T_5, T_9\} \quad \text{(flujo alto riesgo)} \\
+& x_3 = \{T_0, T_6, T_7, T_8, T_9\} \quad \text{(flujo bancario)} \\[10pt]
+
+& \text{\textbf{7. Semántica Temporal}} \\
+& \text{Condición de sensibilización extendida:} \\
+& sensibilizada(t) \iff \left(\forall p: M[p] - I^+[t][p] \geq 0\right) \land \left(t_{ahora} - t_{stamp}[t] \geq \alpha[t]\right) \\
+& \text{Tiempo de espera (condición estructural se cumple, temporal no):} \\
+& t_{espera} = \alpha[t] - (t_{ahora} - t_{stamp}[t]) \\
+& \text{Condición para dormir el hilo:} \\
+& t_{espera} > 0 \implies \text{sleep}(t_{espera}) \\[10pt]
+
+& \text{\textbf{8. Verificación en cada disparo}} \\
+& \text{Invariante de plaza válido si y solo si:} \\
+& \sum_{p \in P} y_i[p] \cdot M'[p] = \sum_{p \in P} y_i[p] \cdot M_0[p] \quad \forall i
+\end{aligned}
