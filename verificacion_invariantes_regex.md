@@ -68,6 +68,29 @@ El entrelazamiento desaparece y cada sub-secuencia puede validarse de forma inde
 
 ---
 
+## 3.1. Justificación Formal mediante Invariantes de Plaza
+
+Una pregunta de examen teórica es: **¿Por qué este método de filtrado individual es válido en presencia de concurrencia?** ¿Qué pasaría si dos transacciones del mismo flujo se ejecutan a la vez e intercalan sus transiciones internas (ej. `T1 (Tx A) -> T1 (Tx B) -> T2 (Tx A) -> T2 (Tx B)`), arrojando una secuencia filtrada `"T1T1T2T2"` que rompería la Regex `^(T1T2T3)+$`?
+
+La respuesta reside en los **Invariantes de Plaza** de los recursos compartidos de nuestra red de Petri:
+
+* **Plaza $P_7$ (Gateway de Red de Tarjetas):** Su marcado inicial es $M(P_7) = 1$. El invariante de plaza asociado es:
+  $$M(P_7) + M(P_2) + M(P_3) + M(P_4) = 1$$
+* **Plaza $P_8$ (Slot Antifraude):** Su marcado inicial es $M(P_8) = 1$. El invariante de plaza asociado es:
+  $$M(P_8) + M(P_4) + M(P_5) + M(P_6) = 1$$
+
+### Consecuencias Estructurales:
+1. **Exclusión mutua intra-flujo (Tarjetas):** Como la suma de tokens en las plazas intermedias del flujo de Tarjetas ($P_2, P_3$) no puede superar a 1, **nunca puede haber más de una transacción activa en el flujo de Tarjetas al mismo tiempo**.
+2. **Exclusión mutua en Transferencias:** De igual manera, el flujo de Transferencias ($P_5, P_6$) está acotado a un máximo de 1 token simultáneo por el invariante de $P_8$.
+3. **Alto Riesgo:** El flujo de Alto Riesgo ($P_4$) requiere ambos recursos, por lo que también está acotado a 1 token máximo.
+
+### Conclusión para las Expresiones Regulares:
+Dado que la red de Petri es estructuralmente **segura (1-bounded)** en sus etapas de procesamiento, **el entrelazamiento intra-flujo está físicamente imposibilitado por los invariantes de plaza**. Cada ciclo de un flujo debe completarse por completo y liberar su recurso antes de que una nueva transacción pueda ingresar al mismo flujo.
+
+Esto valida matemáticamente el uso de las expresiones regulares simplificadas como `^(T1T2T3)+$`, ya que las secuencias filtradas de cada flujo serán siempre estrictamente secuenciales.
+
+---
+
 ## 4. Las Expresiones Regulares Utilizadas
 
 ### Patrones por flujo
