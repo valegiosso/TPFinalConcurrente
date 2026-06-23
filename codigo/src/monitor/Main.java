@@ -67,13 +67,13 @@ public class Main {
 
         tiempos[0] = new SensibilizadoConTiempo(0, 0);       // T0: inmediata
         tiempos[1] = new SensibilizadoConTiempo(0, 0);       // T1: inmediata
-        tiempos[2] = new SensibilizadoConTiempo(0, 0);       // T2: temporal - TODO
-        tiempos[3] = new SensibilizadoConTiempo(0, 0);       // T3: temporal - TODO
+        tiempos[2] = new SensibilizadoConTiempo(100, 10000);  // T2: temporal - tarjeta (autorizacion)
+        tiempos[3] = new SensibilizadoConTiempo(100, 10000);  // T3: temporal - tarjeta (captura)
         tiempos[4] = new SensibilizadoConTiempo(0, 0);       // T4: inmediata
-        tiempos[5] = new SensibilizadoConTiempo(0, 0);       // T5: temporal - TODO
+        tiempos[5] = new SensibilizadoConTiempo(150, 10000);  // T5: temporal - alto riesgo (scoring + captura)
         tiempos[6] = new SensibilizadoConTiempo(0, 0);       // T6: inmediata
-        tiempos[7] = new SensibilizadoConTiempo(0, 0);       // T7: temporal - TODO
-        tiempos[8] = new SensibilizadoConTiempo(0, 0);       // T8: temporal - TODO
+        tiempos[7] = new SensibilizadoConTiempo(120, 10000);  // T7: temporal - transferencia (validacion)
+        tiempos[8] = new SensibilizadoConTiempo(120, 10000);  // T8: temporal - transferencia (ejecucion)
         tiempos[9] = new SensibilizadoConTiempo(0, 0);       // T9: inmediata
 
         // ====================================================================
