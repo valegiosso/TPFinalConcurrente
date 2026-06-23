@@ -1,0 +1,3 @@
+# Ignorar archivos compilados y logs
+codigo/bin/
+codigo/log_disparos.txt
