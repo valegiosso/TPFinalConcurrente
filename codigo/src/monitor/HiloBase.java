@@ -1,11 +1,15 @@
 package monitor;
 
 /**
- * Clase base abstracta para los hilos de ejecucion.
- * Cada hilo tiene un conjunto de transiciones asignadas que intenta
+ * Hilo de ejecucion generico del sistema.
+ * Cada hilo recibe un conjunto de transiciones asignadas que intenta
  * disparar secuencialmente en bucle, hasta que el monitor lo detenga.
+ *
+ * La especializacion de cada hilo (generador, tarjetas, alto riesgo,
+ * transferencias, salida) no esta en la clase sino en el array de
+ * transiciones que se le pasa al construirlo en Main.
  */
-public abstract class HiloBase implements Runnable {
+public class HiloBase implements Runnable {
 
     protected final MonitorInterface monitor;
     protected final int[] transicionesAsignadas;
