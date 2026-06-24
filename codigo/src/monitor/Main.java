@@ -101,7 +101,8 @@ public class Main {
         Logger logger = new Logger("log_disparos.txt");
 
         // T9 es la transicion de salida (deposita en P9 y luego vuelve token a P0)
-        Monitor monitor = new Monitor(rdp, politica, logger, MAX_INVARIANTES, 0, 9);
+        ControlDeEjecucion control = new ControlPSP(0, 9, MAX_INVARIANTES);
+        Monitor monitor = new Monitor(rdp, politica, logger, control);
 
         // ====================================================================
         // 6. CREAR E INICIAR HILOS
