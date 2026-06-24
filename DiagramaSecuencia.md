@@ -1,83 +1,155 @@
+```mermaid
 sequenceDiagram
     autonumber
-    actor hilo1 as hilo1 :
-    actor hilo2 as hilo2 :
-    participant r as r : GestorDeMonitor
-    participant r1 as r1 : Mutex
-    participant r2 as r2 : RdP
-    participant r3 as r3 : Colas
-    participant r4 as r4 : Politicas
+    actor hilo1 as Hilo 1 (Activo / Disparador)
+    actor hilo2 as Hilo 2 (Bloqueado / Reactivado)
+    participant m as Monitor (MonitorInterface)
+    participant mutex as Semaphore (mutex)
+    participant rdp as RdP
+    participant vs as VectorSensibilizadas
+    participant sct as SensibilizadoConTiempo
+    participant colas as Colas
+    participant pol as Politica
 
-    Note over hilo1: hilo activo
-    Note over hilo2: hilo dormido
+    Note over hilo2: Escenario A: Hilo 2 intenta disparar T2 pero no está sensibilizada
+    hilo2->>m: fireTransition(2)
+    activate m
+    m->>mutex: acquire()
+    activate mutex
+    mutex-->>m: 
+    deactivate mutex
 
-    hilo1->>r: dispararTransicion()
-    activate r
-    r->>r1: acquire()
-    activate r1
-    r1-->>r: 
-    deactivate r1
-    r->>r: k=true
+    Note over m: k = true, entra al while(k)
     
-    loop k==true
-        r->>r2: disparar()
-        activate r2
-        r2-->>r: k
-        deactivate r2
-        
-        alt k==true
-            r->>r2: sensibilizadas()
-            activate r2
-            r2-->>r: 
-            deactivate r2
-            
-            r->>r3: quienesEstan()
-            activate r3
-            r3-->>r: 
-            deactivate r3
-            
-            r->>r: m=Vs And Vc
-            
-            alt m<>0
-                r->>r4: cual()
-                activate r4
-                r4-->>r: 
-                deactivate r4
-                
-                r->>r3: release()
-                activate r3
-                r3-->>hilo2: 
-                Note over hilo2: se activa el hilo
-                r3-->>r: 
-                deactivate r3
-                
-                r-->>hilo1: 
-                Note over hilo1: sale del monitor
-            else m==0
-                r->>r: k=false
-            end
-            
-        else k==false
-            r->>r1: release()
-            activate r1
-            r1-->>r: 
-            deactivate r1
-            
-            r->>r3: acquire()
-            activate r3
-            r3-->>r: 
-            deactivate r3
-        end
+    m->>rdp: disparar(2)
+    activate rdp
+    rdp-->>m: false (No sensibilizada por marcado)
+    deactivate rdp
+    
+    Note over m: k = false (no pudo disparar)
+    m->>mutex: release()
+    activate mutex
+    mutex-->>m: 
+    deactivate mutex
+    
+    m->>colas: acquire(2)
+    activate colas
+    Note over hilo2: Hilo 2 queda suspendido en la cola de T2
+    deactivate colas
+    deactivate m
+
+    Note over hilo1: Escenario B: Hilo 1 ingresa, duerme por tiempo y luego dispara T1 despertando a Hilo 2
+    hilo1->>m: fireTransition(1)
+    activate m
+    m->>mutex: acquire()
+    activate mutex
+    mutex-->>m: 
+    deactivate mutex
+
+    Note over m: k = true, entra al while(k)
+    
+    m->>vs: estaSensibilizadoPeroAntes(1)
+    activate vs
+    vs-->>m: true (Sensibilizada por marcado, pero falta tiempo alfa)
+    deactivate vs
+    
+    m->>vs: tiempoRestante(1)
+    activate vs
+    vs-->>m: espera (ms)
+    deactivate vs
+
+    m->>sct: setEsperando(true)
+    activate sct
+    sct-->>m: 
+    deactivate sct
+    
+    m->>mutex: release()
+    activate mutex
+    mutex-->>m: 
+    deactivate mutex
+    
+    Note over hilo1, m: Hilo 1 libera el lock y se duerme fuera del monitor
+    hilo1->>hilo1: Thread.sleep(espera)
+    
+    m->>mutex: acquire()
+    activate mutex
+    mutex-->>m: 
+    deactivate mutex
+
+    m->>sct: setEsperando(false)
+    activate sct
+    sct-->>m: 
+    deactivate sct
+
+    Note over m: continue → vuelve al inicio del while(k)
+    
+    m->>rdp: disparar(1)
+    activate rdp
+    rdp-->>m: true (Disparo exitoso, ya pasó el tiempo alfa)
+    deactivate rdp
+    
+    Note over m: k = true (disparo exitoso)
+
+    loop Para cada transición i
+        m->>vs: sensibilizadaPorMarcado(i)
+        activate vs
+        vs-->>m: habilitada (boolean)
+        deactivate vs
     end
+
+    m->>colas: quienesEstan()
+    activate colas
+    colas-->>m: conHilosEsperando (Indica que Hilo 2 espera en T2)
+    deactivate colas
     
-    r-->>hilo2: continua
-    Note over hilo2: en este punto continua<br/>la ejecucion
+    m->>pol: decidirTransicion(sensibilizadas, quienesEstan)
+    activate pol
+    pol-->>m: 2 (Selecciona reactivar T2)
+    deactivate pol
     
-    r->>r1: release()
-    activate r1
-    r1-->>r: 
-    deactivate r1
+    m->>colas: release(2)
+    activate colas
+    Note over colas: Despierta a Hilo 2. Se transfiere el lock (Passing the Baton).
+    colas-->>hilo2: 
+    deactivate colas
     
-    r-->>hilo2: 
-    Note over hilo2: el hilo se va
-    deactivate r
+    m-->>hilo1: true (Hilo 1 sale del Monitor SIN liberar el mutex principal)
+    deactivate m
+
+    Note over hilo2: Escenario C: Hilo 2 despierta dentro del Monitor y completa su disparo
+    activate m
+    Note over hilo2, m: Hilo 2 despierta de colas.acquire(2) dentro del bucle con k = true
+    
+    m->>rdp: disparar(2)
+    activate rdp
+    rdp-->>m: true (Disparo exitoso ahora que cambió el marcado)
+    deactivate rdp
+    
+    Note over m: k = true (disparo exitoso)
+
+    loop Para cada transición i
+        m->>vs: sensibilizadaPorMarcado(i)
+        activate vs
+        vs-->>m: habilitada (boolean)
+        deactivate vs
+    end
+
+    m->>colas: quienesEstan()
+    activate colas
+    colas-->>m: conHilosEsperando (Nadie más esperando)
+    deactivate colas
+    
+    m->>pol: decidirTransicion(sensibilizadas, quienesEstan)
+    activate pol
+    pol-->>m: -1 (Ninguna candidata)
+    deactivate pol
+    
+    Note over m: seleccionada == -1, k = false → sale del while
+    m->>mutex: release()
+    activate mutex
+    mutex-->>m: 
+    deactivate mutex
+    
+    m-->>hilo2: true (Hilo 2 sale del Monitor)
+    deactivate m
+```

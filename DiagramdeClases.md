@@ -1,3 +1,4 @@
+```mermaid
 classDiagram
     class MonitorInterface {
         <<interface>>
@@ -11,14 +12,18 @@ classDiagram
         -Politica politica
         -Logger logger
         -int contadorInvariantes
+        -int contadorAdmitidas
         -int maxInvariantes
+        -int transicionEntrada
         -int transicionSalida
-        +Monitor(RdP rdp, Politica politica, Logger logger, int maxInvariantes, int transicionSalida)
+        +Monitor(RdP rdp, Politica politica, Logger logger, int maxInvariantes, int transicionEntrada, int transicionSalida)
         +fireTransition(int transition) boolean
+        -despertarATodosYSalir() void
     }
 
     class Logger {
         -String archivoPath
+        -BufferedWriter writer
         +Logger(String archivoPath)
         +escribirDisparo(int transition) void
         +cerrarLog() void
@@ -37,7 +42,7 @@ classDiagram
         -Matrizi matrizPost
         -VectorDeEstado vectorDeEstado
         -VectorSensibilizadas vectorSensibilizadas
-        +RdP(Matrizi matrizPre, Matrizi matrizPost, VectorDeEstado estadoInicial)
+        +RdP(Matrizi matrizPre, Matrizi matrizPost, VectorDeEstado estadoInicial, VectorSensibilizadas vectorSensibilizadas)
         +disparar(int transition) boolean
         +getMatrizPre() Matrizi
         +getMatrizPost() Matrizi
@@ -65,10 +70,15 @@ classDiagram
     class VectorSensibilizadas {
         -boolean[] sensibilizadas
         -SensibilizadoConTiempo[] tiempos
-        +VectorSensibilizadas(int cantidadTransiciones)
+        +VectorSensibilizadas(int cantidadTransiciones, SensibilizadoConTiempo[] tiempos)
         +estaSensibilizado(int transition) boolean
-        +actualiceSensibilizadoT(int transition, boolean state) void
+        +estaSensibilizadoPeroAntes(int transition) boolean
+        +tiempoRestante(int transition) long
+        +actualiceSensibilizadoT(int transition, boolean nuevoEstado) void
         +update(VectorDeEstado estado, Matrizi matrizPre) void
+        +sensibilizadaPorMarcado(int transition) boolean
+        +getTiempo(int transition) SensibilizadoConTiempo
+        +getCantidad() int
     }
 
     class SensibilizadoConTiempo {
@@ -79,9 +89,13 @@ classDiagram
         +SensibilizadoConTiempo(long alfa, long beta)
         +testVentanaTiempo() boolean
         +antesDeLaVentana() boolean
+        +tiempoRestante() long
         +setNuevoTimeStamp() void
         +setEsperando(boolean esp) void
         +resetEsperando() void
+        +isEsperando() boolean
+        +getAlfa() long
+        +getBeta() long
     }
 
     class Politica {
@@ -90,10 +104,14 @@ classDiagram
     }
 
     class PoliticaAleatoria {
+        -Random random
         +decidirTransicion(boolean[] habilitadas, boolean[] conHilosEsperando) int
     }
 
     class PoliticaPriorizada {
+        -int[] transicionesPrioritarias
+        -Random random
+        +PoliticaPriorizada(int[] transicionesPrioritarias)
         +decidirTransicion(boolean[] habilitadas, boolean[] conHilosEsperando) int
     }
 
@@ -107,22 +125,18 @@ classDiagram
 
     class HiloGenerador {
         +HiloGenerador(MonitorInterface monitor, int[] transiciones)
-        +run() void
     }
 
     class HiloProcesadorTarjetas {
         +HiloProcesadorTarjetas(MonitorInterface monitor, int[] transiciones)
-        +run() void
     }
 
     class HiloProcesadorTransferencias {
         +HiloProcesadorTransferencias(MonitorInterface monitor, int[] transiciones)
-        +run() void
     }
 
     class HiloProcesadorAltoRiesgo {
         +HiloProcesadorAltoRiesgo(MonitorInterface monitor, int[] transiciones)
-        +run() void
     }
 
     %% Relaciones
@@ -147,3 +161,4 @@ classDiagram
     HiloProcesadorTarjetas --|> HiloBase : hereda
     HiloProcesadorTransferencias --|> HiloBase : hereda
     HiloProcesadorAltoRiesgo --|> HiloBase : hereda
+```
