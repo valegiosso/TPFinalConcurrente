@@ -20,24 +20,16 @@ public class Monitor implements MonitorInterface {
     private final Colas colas;
     private final Politica politica;
     private final Logger logger;
-    private int contadorInvariantes;
-    private int contadorAdmitidas;
-    private final int maxInvariantes;
-    private final int transicionEntrada;
-    private final int transicionSalida;
+    private final ControlDeEjecucion control;
 
-    public Monitor(RdP rdp, Politica politica, Logger logger, int maxInvariantes, int transicionEntrada, int transicionSalida) {
+    public Monitor(RdP rdp, Politica politica, Logger logger, ControlDeEjecucion control) {
         int cantTransiciones = rdp.getVectorSensibilizadas().getCantidad();
         this.rdp = rdp;
         this.mutex = new Semaphore(1, true);
         this.colas = new Colas(cantTransiciones);
         this.politica = politica;
         this.logger = logger;
-        this.contadorInvariantes = 0;
-        this.contadorAdmitidas = 0;
-        this.maxInvariantes = maxInvariantes;
-        this.transicionEntrada = transicionEntrada;
-        this.transicionSalida = transicionSalida;
+        this.control = control;
     }
 
     @Override
@@ -56,13 +48,13 @@ public class Monitor implements MonitorInterface {
         boolean k = true;
         while (k) {
             // Verificar si llegamos al limite de invariantes para finalizar
-            if (contadorInvariantes >= maxInvariantes) {
+            if (control.debeFinalizar()) {
                 despertarATodosYSalir();
                 return false;
             }
 
             // Evitar admitir mas transacciones que el limite maximo
-            if (transition == transicionEntrada && contadorAdmitidas >= maxInvariantes) {
+            if (control.bloquearTransicion(transition)) {
                 mutex.release();
                 return false;
             }
@@ -100,13 +92,8 @@ public class Monitor implements MonitorInterface {
                 // Registrar en el log
                 logger.escribirDisparo(transition);
 
-                if (transition == transicionEntrada) {
-                    contadorAdmitidas++;
-                }
-
-                if (transition == transicionSalida) {
-                    contadorInvariantes++;
-                }
+                // Notificar disparo a la estrategia de control
+                control.notificarDisparo(transition);
 
                 // Verificar invariantes de plaza
                 if (!rdp.getEstadoActual().verificarInvariantePlazas()) {
@@ -114,7 +101,7 @@ public class Monitor implements MonitorInterface {
                 }
 
                 // Si este disparo completo el total de invariantes
-                if (contadorInvariantes >= maxInvariantes) {
+                if (control.debeFinalizar()) {
                     despertarATodosYSalir();
                     return false;
                 }
@@ -140,7 +127,7 @@ public class Monitor implements MonitorInterface {
                 colas.acquire(transition);
                 
                 // Si al despertar ya termino el programa
-                if (contadorInvariantes >= maxInvariantes) {
+                if (control.debeFinalizar()) {
                     despertarATodosYSalir();
                     return false;
                 }
