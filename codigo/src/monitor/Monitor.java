@@ -21,13 +21,12 @@ public class Monitor implements MonitorInterface {
     private final Politica politica;
     private final Logger logger;
     private int contadorInvariantes;
+    private int contadorAdmitidas;
     private final int maxInvariantes;
-
-    // Transicion de salida (la ultima del ciclo, que deposita en P9)
-    // Se usa para contar invariantes completados.
+    private final int transicionEntrada;
     private final int transicionSalida;
 
-    public Monitor(RdP rdp, Politica politica, Logger logger, int maxInvariantes, int transicionSalida) {
+    public Monitor(RdP rdp, Politica politica, Logger logger, int maxInvariantes, int transicionEntrada, int transicionSalida) {
         int cantTransiciones = rdp.getVectorSensibilizadas().getCantidad();
         this.rdp = rdp;
         this.mutex = new Semaphore(1, true);
@@ -35,7 +34,9 @@ public class Monitor implements MonitorInterface {
         this.politica = politica;
         this.logger = logger;
         this.contadorInvariantes = 0;
+        this.contadorAdmitidas = 0;
         this.maxInvariantes = maxInvariantes;
+        this.transicionEntrada = transicionEntrada;
         this.transicionSalida = transicionSalida;
     }
 
@@ -57,6 +58,12 @@ public class Monitor implements MonitorInterface {
             // Verificar si llegamos al limite de invariantes para finalizar
             if (contadorInvariantes >= maxInvariantes) {
                 despertarATodosYSalir();
+                return false;
+            }
+
+            // Evitar admitir mas transacciones que el limite maximo
+            if (transition == transicionEntrada && contadorAdmitidas >= maxInvariantes) {
+                mutex.release();
                 return false;
             }
 
@@ -92,6 +99,10 @@ public class Monitor implements MonitorInterface {
             if (k) {
                 // Registrar en el log
                 logger.escribirDisparo(transition);
+
+                if (transition == transicionEntrada) {
+                    contadorAdmitidas++;
+                }
 
                 if (transition == transicionSalida) {
                     contadorInvariantes++;

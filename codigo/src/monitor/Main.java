@@ -1,7 +1,5 @@
 package monitor;
 
-import javax.management.monitor.Monitor;
-
 /**
  * Clase principal que inicializa y ejecuta el sistema de procesamiento
  * de transacciones de pago modelado con Red de Petri.
@@ -103,7 +101,7 @@ public class Main {
         Logger logger = new Logger("log_disparos.txt");
 
         // T9 es la transicion de salida (deposita en P9 y luego vuelve token a P0)
-        Monitor monitor = new Monitor(rdp, politica, logger, MAX_INVARIANTES, 9);
+        Monitor monitor = new Monitor(rdp, politica, logger, MAX_INVARIANTES, 0, 9);
 
         // ====================================================================
         // 6. CREAR E INICIAR HILOS

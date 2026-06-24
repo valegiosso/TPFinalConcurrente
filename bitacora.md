@@ -136,6 +136,12 @@ El paquete `monitor` se compone de los siguientes elementos limpios:
 | **HiloProcesadorTransferencias** | Hilo para el flujo secuencial `T6` $\rightarrow$ `T7` $\rightarrow$ `T8`. |
 | **Main** | Define matrices y marcado inicial de la red, instancia el monitor con la política elegida, inicia los hilos y espera su finalización con `join()`. |
 
+### 5. Control de Admisiones para Verificación de Invariantes Limpia
+Para que el análisis de invariantes mediante expresiones regulares en `regex.py` sea correcto al finalizar la ejecución, se implementó un control de admisiones en el monitor:
+- Se añadió un contador de transacciones admitidas (`contadorAdmitidas`) y una referencia a la transición de admisión (`transicionEntrada` o `T0`).
+- El monitor bloquea nuevos disparos de la transición de entrada una vez que se han admitido `maxInvariantes` transacciones (`contadorAdmitidas >= maxInvariantes`), permitiendo que el hilo generador de entrada finalice ordenadamente.
+- Esto asegura que todas las transacciones admitidas se completen íntegramente hasta `T9` antes del apagado del monitor. Evita que queden transacciones a medio camino ("en vuelo"), garantizando que los logs no tengan secuencias rotas o incompletas de transiciones al final (por ejemplo, `T6T7` sin su respectivo `T8`), logrando que la verificación de `regex.py` dé un resultado de `PASS` en todos los flujos e invariantes.
+
 ## ecuaciones
 \begin{aligned}
 & \text{\textbf{1. Marcado}} \\
