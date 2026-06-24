@@ -3,3 +3,13 @@ codigo/bin/
 out/
 *.class
 codigo/log_disparos.txt
+
+# Ignorar archivos y carpetas de editores e IDEs
+# JetBrains (IntelliJ IDEA, PyCharm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Visual Studio Code
+.vscode/
