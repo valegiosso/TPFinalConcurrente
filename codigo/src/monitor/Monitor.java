@@ -45,8 +45,8 @@ public class Monitor implements MonitorInterface {
             return false;
         }
 
-        boolean k = true;
-        while (k) {
+        boolean seguir = true;
+        while (seguir) {
             // Verificar si llegamos al limite de invariantes para finalizar
             if (control.debeFinalizar()) {
                 despertarATodosYSalir();
@@ -86,9 +86,9 @@ public class Monitor implements MonitorInterface {
             }
 
             // Intentar disparar
-            k = rdp.disparar(transition);
+            seguir = rdp.disparar(transition);
 
-            if (k) {
+            if (seguir) {
                 // Registrar en el log
                 logger.escribirDisparo(transition);
 
@@ -120,7 +120,7 @@ public class Monitor implements MonitorInterface {
                     colas.release(seleccionada);
                     return true; // Sale del monitor sin liberar mutex (pasando el testigo)
                 } else {
-                    k = false; // Termina el ciclo k
+                    seguir = false; // Termina el ciclo k
                 }
             } else {
                 mutex.release();
@@ -131,8 +131,8 @@ public class Monitor implements MonitorInterface {
                     despertarATodosYSalir();
                     return false;
                 }
-                
-                k = true; // Sigue en el ciclo k
+
+                seguir = true; // Sigue en el ciclo k
             }
         }
 
