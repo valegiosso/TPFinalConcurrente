@@ -28,7 +28,19 @@ public class VectorSensibilizadas {
         if (!sensibilizadas[transition]) {
             return false;
         }
-        return tiempos[transition].testVentanaTiempo();
+        
+        SensibilizadoConTiempo st = tiempos[transition];
+        if (st.testVentanaTiempo()) {
+            // Regla del diagrama: si esperando == true, falla (k=false)
+            // Esto evita que un hilo "robe" la transicion mientras otro duerme
+            if (st.isEsperando()) {
+                return false;
+            }
+            // Paso 1.1.3 del diagrama: actualizar timestamp al disparar exitosamente
+            st.setNuevoTimeStamp();
+            return true;
+        }
+        return false;
     }
 
     /**
