@@ -10,11 +10,10 @@ classDiagram
         -Colas colas
         -Politica politica
         -Logger logger
-        -int contadorInvariantes
-        -int maxInvariantes
-        -int transicionSalida
-        +Monitor(RdP rdp, Politica politica, Logger logger, int maxInvariantes, int transicionSalida)
+        -ControlDeEjecucion control
+        +Monitor(RdP rdp, Politica politica, Logger logger, ControlDeEjecucion control)
         +fireTransition(int transition) boolean
+        -despertarATodosYSalir() void
     }
 
     class Logger {
@@ -37,7 +36,7 @@ classDiagram
         -Matrizi matrizPost
         -VectorDeEstado vectorDeEstado
         -VectorSensibilizadas vectorSensibilizadas
-        +RdP(Matrizi matrizPre, Matrizi matrizPost, VectorDeEstado estadoInicial)
+        +RdP(Matrizi matrizPre, Matrizi matrizPost, VectorDeEstado estadoInicial, VectorSensibilizadas vectorSensibilizadas)
         +disparar(int transition) boolean
         +getMatrizPre() Matrizi
         +getMatrizPost() Matrizi
@@ -65,10 +64,15 @@ classDiagram
     class VectorSensibilizadas {
         -boolean[] sensibilizadas
         -SensibilizadoConTiempo[] tiempos
-        +VectorSensibilizadas(int cantidadTransiciones)
+        +VectorSensibilizadas(int cantidadTransiciones, SensibilizadoConTiempo[] tiempos)
         +estaSensibilizado(int transition) boolean
+        +estaSensibilizadoPeroAntes(int transition) boolean
+        +tiempoRestante(int transition) long
+        +sensibilizadaPorMarcado(int transition) boolean
         +actualiceSensibilizadoT(int transition, boolean state) void
         +update(VectorDeEstado estado, Matrizi matrizPre) void
+        +getTiempo(int transition) SensibilizadoConTiempo
+        +getCantidad() int
     }
 
     class SensibilizadoConTiempo {
@@ -79,9 +83,11 @@ classDiagram
         +SensibilizadoConTiempo(long alfa, long beta)
         +testVentanaTiempo() boolean
         +antesDeLaVentana() boolean
+        +tiempoRestante() long
         +setNuevoTimeStamp() void
         +setEsperando(boolean esp) void
         +resetEsperando() void
+        +isEsperando() boolean
     }
 
     class Politica {
@@ -94,34 +100,34 @@ classDiagram
     }
 
     class PoliticaPriorizada {
+        -int[] transicionesPrioritarias
+        +PoliticaPriorizada(int[] transicionesPrioritarias)
         +decidirTransicion(boolean[] habilitadas, boolean[] conHilosEsperando) int
     }
 
+    class ControlDeEjecucion {
+        <<interface>>
+        +notificarDisparo(int transition) void
+        +debeFinalizar() boolean
+        +bloquearTransicion(int transition) boolean
+    }
+
+    class ControlPSP {
+        -int transicionEntrada
+        -int transicionSalida
+        -int maxInvariantes
+        -int contadorAdmitidas
+        -int contadorInvariantes
+        +ControlPSP(int transicionEntrada, int transicionSalida, int maxInvariantes)
+        +notificarDisparo(int transition) void
+        +debeFinalizar() boolean
+        +bloquearTransicion(int transition) boolean
+    }
+
     class HiloBase {
-        <<abstract>>
         #MonitorInterface monitor
         #int[] transicionesAsignadas
         +HiloBase(MonitorInterface monitor, int[] transiciones)
-        +run() void
-    }
-
-    class HiloGenerador {
-        +HiloGenerador(MonitorInterface monitor, int[] transiciones)
-        +run() void
-    }
-
-    class HiloProcesadorTarjetas {
-        +HiloProcesadorTarjetas(MonitorInterface monitor, int[] transiciones)
-        +run() void
-    }
-
-    class HiloProcesadorTransferencias {
-        +HiloProcesadorTransferencias(MonitorInterface monitor, int[] transiciones)
-        +run() void
-    }
-
-    class HiloProcesadorAltoRiesgo {
-        +HiloProcesadorAltoRiesgo(MonitorInterface monitor, int[] transiciones)
         +run() void
     }
 
@@ -132,9 +138,12 @@ classDiagram
     Monitor "1" *-- "1" Colas : composición
     Monitor "1" o-- "1" Politica : agregación
     Monitor "1" o-- "1" Logger : agregación
+    Monitor "1" o-- "1" ControlDeEjecucion : agregación
     
     PoliticaAleatoria ..|> Politica : implementa
     PoliticaPriorizada ..|> Politica : implementa
+    
+    ControlPSP ..|> ControlDeEjecucion : implementa
     
     RdP "1" *-- "2" Matrizi : composición (Pre y Post)
     RdP "1" *-- "1" VectorDeEstado : composición
@@ -142,8 +151,5 @@ classDiagram
     
     VectorSensibilizadas "1" *-- "*" SensibilizadoConTiempo : composición
     
+    HiloBase ..|> Runnable : implementa
     HiloBase ..> MonitorInterface : usa
-    HiloGenerador --|> HiloBase : hereda
-    HiloProcesadorTarjetas --|> HiloBase : hereda
-    HiloProcesadorTransferencias --|> HiloBase : hereda
-    HiloProcesadorAltoRiesgo --|> HiloBase : hereda
