@@ -1,5 +1,7 @@
 package monitor;
 
+import javax.management.monitor.Monitor;
+
 /**
  * Clase principal que inicializa y ejecuta el sistema de procesamiento
  * de transacciones de pago modelado con Red de Petri.
@@ -67,15 +69,14 @@ public class Main {
 
         tiempos[0] = new SensibilizadoConTiempo(0, 0);       // T0: inmediata
         tiempos[1] = new SensibilizadoConTiempo(0, 0);       // T1: inmediata
-        tiempos[2] = new SensibilizadoConTiempo(100, 10000);  // T2: temporal - tarjeta (autorizacion)
-        tiempos[3] = new SensibilizadoConTiempo(100, 10000);  // T3: temporal - tarjeta (captura)
         tiempos[4] = new SensibilizadoConTiempo(0, 0);       // T4: inmediata
-        tiempos[5] = new SensibilizadoConTiempo(150, 10000);  // T5: temporal - alto riesgo (scoring + captura)
         tiempos[6] = new SensibilizadoConTiempo(0, 0);       // T6: inmediata
-        tiempos[7] = new SensibilizadoConTiempo(120, 10000);  // T7: temporal - transferencia (validacion)
-        tiempos[8] = new SensibilizadoConTiempo(120, 10000);  // T8: temporal - transferencia (ejecucion)
         tiempos[9] = new SensibilizadoConTiempo(0, 0);       // T9: inmediata
-
+        tiempos[2] = new SensibilizadoConTiempo(100, Long.MAX_VALUE);       // T2: [100ms, inf]
+        tiempos[3] = new SensibilizadoConTiempo(100, Long.MAX_VALUE);       // T3: [100ms, inf]
+        tiempos[5] = new SensibilizadoConTiempo(150, Long.MAX_VALUE);       // T5: [150ms, inf]
+        tiempos[7] = new SensibilizadoConTiempo(120, Long.MAX_VALUE);       // T7: [120ms, inf]
+        tiempos[8] = new SensibilizadoConTiempo(120, Long.MAX_VALUE);       // T8: [120ms, inf]
         // ====================================================================
         // 3. CREAR COMPONENTES DE LA RED
         // ====================================================================
