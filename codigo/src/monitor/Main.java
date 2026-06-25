@@ -9,8 +9,7 @@ package monitor;
  */
 public class Main {
 
-    // Total de invariantes (transacciones completas) a procesar
-    private static final int MAX_INVARIANTES = 200;
+    // Total de invariantes: ver RdP.MAX_INVARIANTES
 
     // Transiciones: T0, T1, T2, T3, T4, T5, T6, T7, T8, T9
     // Plazas:       P0, P1, P2, P3, P4, P5, P6, P7, P8, P9
@@ -76,15 +75,14 @@ public class Main {
         tiempos[7] = new SensibilizadoConTiempo(120, Long.MAX_VALUE);       // T7: [120ms, inf]
         tiempos[8] = new SensibilizadoConTiempo(120, Long.MAX_VALUE);       // T8: [120ms, inf]
         // ====================================================================
-        // 3. CREAR COMPONENTES DE LA RED
-        // ====================================================================
 
         Matrizi matrizPre = new Matrizi(pre);
         Matrizi matrizPost = new Matrizi(post);
         VectorDeEstado estadoInicial = new VectorDeEstado(m0);
         VectorSensibilizadas vectorSensibilizadas = new VectorSensibilizadas(cantTransiciones, tiempos);
+        Logger logger = new Logger("log_disparos.txt");
 
-        RdP rdp = new RdP(matrizPre, matrizPost, estadoInicial, vectorSensibilizadas);
+        RdP rdp = new RdP(matrizPre, matrizPost, estadoInicial, vectorSensibilizadas, logger);
 
         // ====================================================================
         // 4. CREAR POLITICA
@@ -95,14 +93,11 @@ public class Main {
         Politica politica = new PoliticaPriorizada(new int[]{4, 5}); // prioriza alto riesgo
 
         // ====================================================================
-        // 5. CREAR MONITOR Y LOGGER
+        // 5. CREAR MONITOR
         // ====================================================================
 
-        Logger logger = new Logger("log_disparos.txt");
+        Monitor monitor = new Monitor(rdp, politica);
 
-        // T9 es la transicion de salida (deposita en P9 y luego vuelve token a P0)
-        ControlDeEjecucion control = new ControlPSP(0, 9, MAX_INVARIANTES);
-        Monitor monitor = new Monitor(rdp, politica, logger, control);
 
         // ====================================================================
         // 6. CREAR E INICIAR HILOS
@@ -170,7 +165,7 @@ public class Main {
         System.out.println("========================================");
         System.out.println("  EJECUCION FINALIZADA");
         System.out.println("========================================");
-        System.out.println("Invariantes completados: " + MAX_INVARIANTES);
+        System.out.println("Invariantes completados: " + RdP.MAX_INVARIANTES);
         System.out.println("Tiempo de ejecucion: " + duracion + " ms");
         System.out.println("Log guardado en: log_disparos.txt");
         System.out.println("========================================");
