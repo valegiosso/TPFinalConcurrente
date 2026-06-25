@@ -91,8 +91,8 @@ public class Main {
         // ====================================================================
         // Descomentar una u otra para probar:
 
-        Politica politica = new PoliticaAleatoria();
-        // Politica politica = new PoliticaPriorizada(new int[]{4, 5}); // prioriza alto riesgo
+        //Politica politica = new PoliticaAleatoria();
+        Politica politica = new PoliticaPriorizada(new int[]{4, 5}); // prioriza alto riesgo
 
         // ====================================================================
         // 5. CREAR MONITOR Y LOGGER
@@ -101,7 +101,8 @@ public class Main {
         Logger logger = new Logger("log_disparos.txt");
 
         // T9 es la transicion de salida (deposita en P9 y luego vuelve token a P0)
-        Monitor monitor = new Monitor(rdp, politica, logger, MAX_INVARIANTES, 0, 9);
+        ControlDeEjecucion control = new ControlPSP(0, 9, MAX_INVARIANTES);
+        Monitor monitor = new Monitor(rdp, politica, logger, control);
 
         // ====================================================================
         // 6. CREAR E INICIAR HILOS
@@ -115,21 +116,23 @@ public class Main {
         // T9 es el join final: un hilo de salida se encarga de T9.
         // Cada flujo tiene su hilo dedicado para sus transiciones post-conflicto.
 
+        // Todos los hilos usan la misma clase generica HiloBase; lo que los
+        // diferencia es el conjunto de transiciones que tienen asignado.
         Thread hiloGenerador = new Thread(
-            new HiloGenerador(monitor, new int[]{0}), "HiloGenerador");
+            new HiloBase(monitor, new int[]{0}), "HiloGenerador");
 
         Thread hiloTarjetas = new Thread(
-            new HiloProcesadorTarjetas(monitor, new int[]{1, 2, 3}), "HiloTarjetas");
+            new HiloBase(monitor, new int[]{1, 2, 3}), "HiloTarjetas");
 
         Thread hiloAltoRiesgo = new Thread(
-            new HiloProcesadorAltoRiesgo(monitor, new int[]{4, 5}), "HiloAltoRiesgo");
+            new HiloBase(monitor, new int[]{4, 5}), "HiloAltoRiesgo");
 
         Thread hiloTransferencias = new Thread(
-            new HiloProcesadorTransferencias(monitor, new int[]{6, 7, 8}), "HiloTransferencias");
+            new HiloBase(monitor, new int[]{6, 7, 8}), "HiloTransferencias");
 
         // Hilo de salida que dispara T9 (deposita en buffer de salida)
         Thread hiloSalida = new Thread(
-            new HiloGenerador(monitor, new int[]{9}), "HiloSalida");
+            new HiloBase(monitor, new int[]{9}), "HiloSalida");
 
         // Registrar tiempo de inicio
         long tiempoInicio = System.currentTimeMillis();

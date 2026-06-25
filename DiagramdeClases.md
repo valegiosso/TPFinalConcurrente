@@ -19,6 +19,7 @@ classDiagram
         +Monitor(RdP rdp, Politica politica, Logger logger, int maxInvariantes, int transicionEntrada, int transicionSalida)
         +fireTransition(int transition) boolean
         -despertarATodosYSalir() void
+        -despertarATodosYSalir() void
     }
 
     class Logger {
@@ -42,6 +43,7 @@ classDiagram
         -Matrizi matrizPost
         -VectorDeEstado vectorDeEstado
         -VectorSensibilizadas vectorSensibilizadas
+        +RdP(Matrizi matrizPre, Matrizi matrizPost, VectorDeEstado estadoInicial, VectorSensibilizadas vectorSensibilizadas)
         +RdP(Matrizi matrizPre, Matrizi matrizPost, VectorDeEstado estadoInicial, VectorSensibilizadas vectorSensibilizadas)
         +disparar(int transition) boolean
         +getMatrizPre() Matrizi
@@ -71,6 +73,7 @@ classDiagram
         -boolean[] sensibilizadas
         -SensibilizadoConTiempo[] tiempos
         +VectorSensibilizadas(int cantidadTransiciones, SensibilizadoConTiempo[] tiempos)
+        +VectorSensibilizadas(int cantidadTransiciones, SensibilizadoConTiempo[] tiempos)
         +estaSensibilizado(int transition) boolean
         +estaSensibilizadoPeroAntes(int transition) boolean
         +tiempoRestante(int transition) long
@@ -89,6 +92,7 @@ classDiagram
         +SensibilizadoConTiempo(long alfa, long beta)
         +testVentanaTiempo() boolean
         +antesDeLaVentana() boolean
+        +tiempoRestante() long
         +tiempoRestante() long
         +setNuevoTimeStamp() void
         +setEsperando(boolean esp) void
@@ -115,8 +119,26 @@ classDiagram
         +decidirTransicion(boolean[] habilitadas, boolean[] conHilosEsperando) int
     }
 
+    class ControlDeEjecucion {
+        <<interface>>
+        +notificarDisparo(int transition) void
+        +debeFinalizar() boolean
+        +bloquearTransicion(int transition) boolean
+    }
+
+    class ControlPSP {
+        -int transicionEntrada
+        -int transicionSalida
+        -int maxInvariantes
+        -int contadorAdmitidas
+        -int contadorInvariantes
+        +ControlPSP(int transicionEntrada, int transicionSalida, int maxInvariantes)
+        +notificarDisparo(int transition) void
+        +debeFinalizar() boolean
+        +bloquearTransicion(int transition) boolean
+    }
+
     class HiloBase {
-        <<abstract>>
         #MonitorInterface monitor
         #int[] transicionesAsignadas
         +HiloBase(MonitorInterface monitor, int[] transiciones)
@@ -146,9 +168,12 @@ classDiagram
     Monitor "1" *-- "1" Colas : composición
     Monitor "1" o-- "1" Politica : agregación
     Monitor "1" o-- "1" Logger : agregación
+    Monitor "1" o-- "1" ControlDeEjecucion : agregación
     
     PoliticaAleatoria ..|> Politica : implementa
     PoliticaPriorizada ..|> Politica : implementa
+    
+    ControlPSP ..|> ControlDeEjecucion : implementa
     
     RdP "1" *-- "2" Matrizi : composición (Pre y Post)
     RdP "1" *-- "1" VectorDeEstado : composición
@@ -156,6 +181,7 @@ classDiagram
     
     VectorSensibilizadas "1" *-- "*" SensibilizadoConTiempo : composición
     
+    HiloBase ..|> Runnable : implementa
     HiloBase ..> MonitorInterface : usa
     HiloGenerador --|> HiloBase : hereda
     HiloProcesadorTarjetas --|> HiloBase : hereda
