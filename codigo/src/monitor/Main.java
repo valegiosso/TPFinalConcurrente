@@ -86,8 +86,8 @@ public class Main {
         // ====================================================================
         // Descomentar una u otra para probar:
 
-        //Politica politica = new PoliticaAleatoria();
-        Politica politica = new PoliticaPriorizada(new int[]{4, 5}); // prioriza alto riesgo
+        //Politica politica = new PoliticaAleatoria("Politica Aleatoria");
+        Politica politica = new PoliticaPriorizada("Politica Priorizada",new int[]{4, 5}); // prioriza alto riesgo
 
         // ====================================================================
         // 5. CREAR MONITOR
@@ -163,6 +163,7 @@ public class Main {
         System.out.println("  EJECUCION FINALIZADA");
         System.out.println("========================================");
         System.out.println("Invariantes completados: " + RdP.MAX_INVARIANTES);
+        System.out.println("Politica utilizada: " + politica.getName());
         System.out.println("Tiempo de ejecucion: " + duracion + " ms");
         System.out.println("Log guardado en: log_disparos.txt");
         System.out.println("========================================");

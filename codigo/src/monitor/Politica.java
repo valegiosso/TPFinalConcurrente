@@ -14,4 +14,6 @@ public interface Politica {
      * @return indice de la transicion a despertar, o -1 si no hay ninguna candidata
      */
     int decidirTransicion(boolean[] m);
+
+    String getName();
 }

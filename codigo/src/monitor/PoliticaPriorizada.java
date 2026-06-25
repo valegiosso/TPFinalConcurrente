@@ -15,10 +15,12 @@ public class PoliticaPriorizada implements Politica {
 
     // Transiciones del flujo de alto riesgo (T4 y T5)
     // TODO: Ajustar estos indices si la red cambia
+    private final String name;
     private final int[] transicionesPrioritarias;
     private final Random random = new Random();
 
-    public PoliticaPriorizada(int[] transicionesPrioritarias) {
+    public PoliticaPriorizada(String name,int[] transicionesPrioritarias) {
+        this.name = name;
         this.transicionesPrioritarias = transicionesPrioritarias;
     }
 
@@ -49,5 +51,10 @@ public class PoliticaPriorizada implements Politica {
         }
 
         return candidatas.get(random.nextInt(candidatas.size()));
+    }
+
+    @Override
+    public String getName() {
+        return name;
     }
 }

@@ -10,7 +10,12 @@ import java.util.Random;
  */
 public class PoliticaAleatoria implements Politica {
 
+    private final String name;
     private final Random random = new Random();
+
+    public PoliticaAleatoria(String name) {
+        this.name = name;
+    }
 
     @Override
     public int decidirTransicion(boolean[] m) {
@@ -27,5 +32,9 @@ public class PoliticaAleatoria implements Politica {
         }
 
         return candidatas.get(random.nextInt(candidatas.size()));
+    }
+    @Override
+    public String getName() {
+        return name;
     }
 }
