@@ -119,25 +119,6 @@ classDiagram
         +decidirTransicion(boolean[] habilitadas, boolean[] conHilosEsperando) int
     }
 
-    class ControlDeEjecucion {
-        <<interface>>
-        +notificarDisparo(int transition) void
-        +debeFinalizar() boolean
-        +bloquearTransicion(int transition) boolean
-    }
-
-    class ControlPSP {
-        -int transicionEntrada
-        -int transicionSalida
-        -int maxInvariantes
-        -int contadorAdmitidas
-        -int contadorInvariantes
-        +ControlPSP(int transicionEntrada, int transicionSalida, int maxInvariantes)
-        +notificarDisparo(int transition) void
-        +debeFinalizar() boolean
-        +bloquearTransicion(int transition) boolean
-    }
-
     class HiloBase {
         #MonitorInterface monitor
         #int[] transicionesAsignadas
@@ -168,12 +149,9 @@ classDiagram
     Monitor "1" *-- "1" Colas : composición
     Monitor "1" o-- "1" Politica : agregación
     Monitor "1" o-- "1" Logger : agregación
-    Monitor "1" o-- "1" ControlDeEjecucion : agregación
     
     PoliticaAleatoria ..|> Politica : implementa
     PoliticaPriorizada ..|> Politica : implementa
-    
-    ControlPSP ..|> ControlDeEjecucion : implementa
     
     RdP "1" *-- "2" Matrizi : composición (Pre y Post)
     RdP "1" *-- "1" VectorDeEstado : composición
