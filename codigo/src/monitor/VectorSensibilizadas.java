@@ -76,15 +76,13 @@ public class VectorSensibilizadas {
      * y la matriz Pre. Una transicion t esta sensibilizada si para toda plaza p:
      *   marcado[p] >= matrizPre[p][t]
      */
-    public void update(VectorDeEstado estado, Matrizi matrizPre) {
+    public void update(int[] marcado, int[][] matrizPre) {
         int cantTransiciones = sensibilizadas.length;
-        int[] marcado = estado.getMarcado();
 
         for (int t = 0; t < cantTransiciones; t++) {
-            int[] columnaPre = matrizPre.getColumna(t);
             boolean habilitada = true;
             for (int p = 0; p < marcado.length; p++) {
-                if (marcado[p] < columnaPre[p]) {
+                if (marcado[p] < matrizPre[p][t]) {
                     habilitada = false;
                     break;
                 }

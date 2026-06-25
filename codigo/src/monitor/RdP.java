@@ -21,22 +21,22 @@ public class RdP {
     // Contador de disparos de T9 (invariantes completados)
     private int contadorSalida  = 0;
 
-    private final Matrizi matrizPre;
-    private final Matrizi matrizPost;
-    private final VectorDeEstado vectorDeEstado;
+    private final int[][] matrizPre;
+    private final int[][] matrizPost;
+    private final int[] marcadoActual;
     private final VectorSensibilizadas vectorSensibilizadas;
     private final Logger logger;
 
-    public RdP(Matrizi matrizPre, Matrizi matrizPost, VectorDeEstado estadoInicial,
+    public RdP(int[][] matrizPre, int[][] matrizPost, int[] marcadoInicial,
                VectorSensibilizadas vectorSensibilizadas, Logger logger) {
         this.matrizPre = matrizPre;
         this.matrizPost = matrizPost;
-        this.vectorDeEstado = estadoInicial;
+        this.marcadoActual = java.util.Arrays.copyOf(marcadoInicial, marcadoInicial.length);
         this.vectorSensibilizadas = vectorSensibilizadas;
         this.logger = logger;
 
         // Calcular sensibilizacion inicial
-        this.vectorSensibilizadas.update(this.vectorDeEstado, this.matrizPre);
+        this.vectorSensibilizadas.update(this.marcadoActual, this.matrizPre);
     }
 
     /**
@@ -52,17 +52,15 @@ public class RdP {
         }
 
         // Ejecutar el disparo: M = M - Pre(:,t) + Post(:,t)
-        int[] columnaPre = matrizPre.getColumna(transition);
-        int[] columnaPost = matrizPost.getColumna(transition);
-
-        vectorDeEstado.restarColumna(columnaPre);
-        vectorDeEstado.sumarColumna(columnaPost);
+        for (int i = 0; i < marcadoActual.length; i++) {
+            marcadoActual[i] = marcadoActual[i] - matrizPre[i][transition] + matrizPost[i][transition];
+        }
 
         // Resetear el estado "esperando" de la transicion disparada
         vectorSensibilizadas.getTiempo(transition).resetEsperando();
 
         // Recalcular sensibilizacion para todas las transiciones
-        vectorSensibilizadas.update(vectorDeEstado, matrizPre);
+        vectorSensibilizadas.update(marcadoActual, matrizPre);
 
         // Registrar en el log
         if (logger != null) {
@@ -74,11 +72,27 @@ public class RdP {
         if (transition == TRANSICION_SALIDA)  contadorSalida++;
 
         // Verificar invariantes de plaza
-        if (!vectorDeEstado.verificarInvariantePlazas()) {
+        if (!verificarInvariantePlazas()) {
             System.err.println("ERROR: Invariante de plaza violado despues de disparar T" + transition);
         }
 
         return true;
+    }
+
+    /**
+     * Verifica los invariantes de plaza de la red.
+     * Ecuaciones extraidas del analisis PIPE:
+     *   M(P2) + M(P3) + M(P4) + M(P7) = 1
+     *   M(P4) + M(P5) + M(P6) + M(P8) = 1
+     *   M(P0) + M(P1) + M(P2) + M(P3) + M(P4) + M(P5) + M(P6) + M(P9) = 3
+     */
+    public boolean verificarInvariantePlazas() {
+        int inv1 = marcadoActual[2] + marcadoActual[3] + marcadoActual[4] + marcadoActual[7];
+        int inv2 = marcadoActual[4] + marcadoActual[5] + marcadoActual[6] + marcadoActual[8];
+        int inv3 = marcadoActual[0] + marcadoActual[1] + marcadoActual[2] + marcadoActual[3]
+                 + marcadoActual[4] + marcadoActual[5] + marcadoActual[6] + marcadoActual[9];
+
+        return (inv1 == 1) && (inv2 == 1) && (inv3 == 3);
     }
 
     /**
@@ -121,19 +135,7 @@ public class RdP {
         return res;
     }
 
-    public Matrizi getMatrizPre() {
-        return matrizPre;
-    }
-
-    public Matrizi getMatrizPost() {
-        return matrizPost;
-    }
-
-    public VectorDeEstado getEstadoActual() {
-        return vectorDeEstado;
-    }
-
-    public VectorSensibilizadas getVectorSensibilizadas() {
-        return vectorSensibilizadas;
+    public int[] getMarcadoActual() {
+        return marcadoActual;
     }
 }

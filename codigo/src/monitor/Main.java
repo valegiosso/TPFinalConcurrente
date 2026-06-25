@@ -76,13 +76,10 @@ public class Main {
         tiempos[8] = new SensibilizadoConTiempo(120, Long.MAX_VALUE);       // T8: [120ms, inf]
         // ====================================================================
 
-        Matrizi matrizPre = new Matrizi(pre);
-        Matrizi matrizPost = new Matrizi(post);
-        VectorDeEstado estadoInicial = new VectorDeEstado(m0);
         VectorSensibilizadas vectorSensibilizadas = new VectorSensibilizadas(cantTransiciones, tiempos);
         Logger logger = new Logger("log_disparos.txt");
 
-        RdP rdp = new RdP(matrizPre, matrizPost, estadoInicial, vectorSensibilizadas, logger);
+        RdP rdp = new RdP(pre, post, m0, vectorSensibilizadas, logger);
 
         // ====================================================================
         // 4. CREAR POLITICA
