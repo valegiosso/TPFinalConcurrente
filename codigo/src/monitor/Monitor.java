@@ -6,8 +6,8 @@ import java.util.concurrent.Semaphore;
  * Monitor de concurrencia para la ejecucion de la Red de Petri.
  *
  * Implementa MonitorInterface exponiendo unicamente fireTransition().
- * Internamente gestiona la exclusion mutua (Semaphore), las colas de espera, 
- * la Red de Petri (RdP), la politica de conflictos (Politica) y el registro 
+ * Internamente gestiona la exclusion mutua (Semaphore), las colas de espera,
+ * la Red de Petri (RdP), la politica de conflictos (Politica) y el registro
  * de disparos (Logger).
  *
  * El monitor es agnostico a la red: no contiene referencias a transiciones
@@ -66,21 +66,21 @@ public class Monitor implements MonitorInterface {
                 long espera = vs.tiempoRestante(transition);
                 vs.getTiempo(transition).setEsperando(true);
                 mutex.release();
-                
+
                 try {
                     Thread.sleep(espera);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return false;
                 }
-                
+
                 try {
                     mutex.acquire();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return false;
                 }
-                
+
                 vs.getTiempo(transition).setEsperando(false);
                 continue; // Reevaluar despues del sleep
             }
@@ -113,19 +113,28 @@ public class Monitor implements MonitorInterface {
                 }
                 boolean[] quienesEstan = colas.quienesEstan();
 
-                // Consultar politica para despertar hilos
-                int seleccionada = politica.decidirTransicion(sensibilizadas, quienesEstan);
+                // Calcular 'm' (sensibilizadas AND quienesEstan) y verificar si hay al menos una transicion
+                boolean[] m = new boolean[sensibilizadas.length];
+                boolean m_distinto_de_cero = false;
+                for (int i = 0; i < sensibilizadas.length; i++) {
+                    m[i] = sensibilizadas[i] && quienesEstan[i];
+                    if (m[i]) {
+                        m_distinto_de_cero = true;
+                    }
+                }
 
-                if (seleccionada >= 0) {
+                if (m_distinto_de_cero) {
+                    // Consultar politica para despertar hilos
+                    int seleccionada = politica.decidirTransicion(m);
                     colas.release(seleccionada);
                     return true; // Sale del monitor sin liberar mutex (pasando el testigo)
                 } else {
-                    seguir = false; // Termina el ciclo k
+                    seguir = false; // Termina el ciclo
                 }
             } else {
                 mutex.release();
                 colas.acquire(transition);
-                
+
                 // Si al despertar ya termino el programa
                 if (control.debeFinalizar()) {
                     despertarATodosYSalir();
@@ -139,7 +148,7 @@ public class Monitor implements MonitorInterface {
         mutex.release(); // Si sale del while por m==0 (k=false)
         return true;
     }
-    
+
     private void despertarATodosYSalir() {
         for (int i = 0; i < rdp.getVectorSensibilizadas().getCantidad(); i++) {
             colas.release(i);
