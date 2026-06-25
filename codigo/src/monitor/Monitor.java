@@ -6,12 +6,8 @@ import java.util.concurrent.Semaphore;
  * Monitor de concurrencia para la ejecucion de la Red de Petri.
  *
  * Implementa MonitorInterface exponiendo unicamente fireTransition().
- * Internamente gestiona la exclusion mutua (Semaphore), las colas de espera,
- * la Red de Petri (RdP), la politica de conflictos (Politica) y el registro
- * de disparos (Logger).
- *
- * El monitor es agnostico a la red: no contiene referencias a transiciones
- * puntuales. Toda la logica depende de las matrices y vectores inyectados.
+ * Internamente gestiona la exclusion mutua (Semaphore), las colas de espera, 
+ * la Red de Petri (RdP) y la politica de conflictos (Politica).
  */
 public class Monitor implements MonitorInterface {
 
@@ -19,17 +15,13 @@ public class Monitor implements MonitorInterface {
     private final Semaphore mutex;
     private final Colas colas;
     private final Politica politica;
-    private final Logger logger;
-    private final ControlDeEjecucion control;
 
-    public Monitor(RdP rdp, Politica politica, Logger logger, ControlDeEjecucion control) {
-        int cantTransiciones = rdp.getVectorSensibilizadas().getCantidad();
+    public Monitor(RdP rdp, Politica politica) {
+        int cantTransiciones = rdp.getCantidadTransiciones();
         this.rdp = rdp;
         this.mutex = new Semaphore(1, true);
         this.colas = new Colas(cantTransiciones);
         this.politica = politica;
-        this.logger = logger;
-        this.control = control;
     }
 
     @Override
@@ -45,26 +37,24 @@ public class Monitor implements MonitorInterface {
             return false;
         }
 
-        boolean seguir = true;
-        while (seguir) {
+        boolean k = true;
+        while (k) {
             // Verificar si llegamos al limite de invariantes para finalizar
-            if (control.debeFinalizar()) {
+            if (rdp.isFinalizada()) {
                 despertarATodosYSalir();
                 return false;
             }
 
             // Evitar admitir mas transacciones que el limite maximo
-            if (control.bloquearTransicion(transition)) {
+            if (rdp.bloquearTransicion(transition)) {
                 mutex.release();
                 return false;
             }
 
-            VectorSensibilizadas vs = rdp.getVectorSensibilizadas();
-
             // Si hay que esperar por tiempo
-            if (vs.estaSensibilizadoPeroAntes(transition)) {
-                long espera = vs.tiempoRestante(transition);
-                vs.getTiempo(transition).setEsperando(true);
+            if (rdp.estaSensibilizadoPeroAntes(transition)) {
+                long espera = rdp.tiempoRestante(transition);
+                rdp.setEsperando(transition, true);
                 mutex.release();
 
                 try {
@@ -80,37 +70,23 @@ public class Monitor implements MonitorInterface {
                     Thread.currentThread().interrupt();
                     return false;
                 }
-
-                vs.getTiempo(transition).setEsperando(false);
+                
+                rdp.setEsperando(transition, false);
                 continue; // Reevaluar despues del sleep
             }
 
             // Intentar disparar
-            seguir = rdp.disparar(transition);
+            k = rdp.disparar(transition);
 
-            if (seguir) {
-                // Registrar en el log
-                logger.escribirDisparo(transition);
-
-                // Notificar disparo a la estrategia de control
-                control.notificarDisparo(transition);
-
-                // Verificar invariantes de plaza
-                if (!rdp.getEstadoActual().verificarInvariantePlazas()) {
-                    System.err.println("ERROR: Invariante de plaza violado despues de disparar T" + transition);
-                }
-
+            if (k) {
                 // Si este disparo completo el total de invariantes
-                if (control.debeFinalizar()) {
+                if (rdp.isFinalizada()) {
                     despertarATodosYSalir();
                     return false;
                 }
 
                 // Obtener arreglos para la politica
-                boolean[] sensibilizadas = new boolean[vs.getCantidad()];
-                for (int i = 0; i < vs.getCantidad(); i++) {
-                    sensibilizadas[i] = vs.sensibilizadaPorMarcado(i);
-                }
+                boolean[] sensibilizadas = rdp.getSensibilizadasPorMarcado();
                 boolean[] quienesEstan = colas.quienesEstan();
 
                 // Calcular 'm' (sensibilizadas AND quienesEstan) y verificar si hay al menos una transicion
@@ -129,19 +105,19 @@ public class Monitor implements MonitorInterface {
                     colas.release(seleccionada);
                     return true; // Sale del monitor sin liberar mutex (pasando el testigo)
                 } else {
-                    seguir = false; // Termina el ciclo
+                    k = false; // Termina el ciclo k
                 }
             } else {
                 mutex.release();
                 colas.acquire(transition);
 
                 // Si al despertar ya termino el programa
-                if (control.debeFinalizar()) {
+                if (rdp.isFinalizada()) {
                     despertarATodosYSalir();
                     return false;
                 }
 
-                seguir = true; // Sigue en el ciclo k
+                k = true; // Sigue en el ciclo k
             }
         }
 
@@ -150,9 +126,10 @@ public class Monitor implements MonitorInterface {
     }
 
     private void despertarATodosYSalir() {
-        for (int i = 0; i < rdp.getVectorSensibilizadas().getCantidad(); i++) {
+        for (int i = 0; i < rdp.getCantidadTransiciones(); i++) {
             colas.release(i);
         }
         mutex.release();
     }
 }
+
