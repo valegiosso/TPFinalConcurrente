@@ -75,7 +75,7 @@ A continuación se detallan las métricas recolectadas para ambas políticas pro
 | Política de Conflicto | Media Real | Mínimo Obs. | Máximo Obs. | Desviación Estándar | Cota Mínima | Cota Máxima | ¿Cumple Req? |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Priorizada** (Favorece T4/T5) | **23.48 s** | 23.30 s | 23.72 s | 0.16 s | 16.08 s | 48.0 s | ✅ (20-40s) |
-| **Aleatoria** (Equiprobable) | **23.52 s** | 23.52 s | 23.52 s | 0.00 s | 16.08 s | 48.0 s | ✅ (20-40s) |
+| **Aleatoria** (Equiprobable) | **23.96 s** | 23.84 s | 24.09 s | 0.18 s | 16.08 s | 48.0 s | ✅ (20-40s) |
 
 ![Comparativa de Políticas](graficos/comparativa_politicas.png)
 
@@ -138,9 +138,9 @@ A continuación se consolidan todos los experimentos realizados en el análisis 
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Mínimos** (50/60/75 ms) | Priorizada | 12.48 s | 12.40 s | 12.55 s | 0.07 s | 8.04 s | 24.0 s | ❌ (Rápido) |
 | **Base** (100/120/150 ms) | **Priorizada** | **23.48 s** | 23.30 s | 23.72 s | 0.16 s | 16.08 s | 48.0 s | ✅ (Cumple) |
-| **Base** (100/120/150 ms) | **Aleatoria** | **23.52 s** | 23.52 s | 23.52 s | 0.00 s | 16.08 s | 48.0 s | ✅ (Cumple) |
-| **Lentos** (200/220/250 ms) | Priorizada | 43.48 s | 43.48 s | 43.48 s | 0.00 s | 29.48 s | 88.0 s | ❌ (Lento) |
-| **Muy lentos** (400/420/450 ms) | Priorizada | 83.17 s | 83.14 s | 83.20 s | 0.05 s | 56.28 s | 168.0 s | ❌ (Lento) |
+| **Base** (100/120/150 ms) | **Aleatoria** | **23.96 s** | 23.84 s | 24.09 s | 0.18 s | 16.08 s | 48.0 s | ✅ (Cumple) |
+| **Lentos** (200/220/250 ms) | Priorizada | 43.58 s | 43.57 s | 43.60 s | 0.02 s | 29.48 s | 88.0 s | ❌ (Lento) |
+| **Muy lentos** (400/420/450 ms) | Priorizada | 83.77 s | 83.71 s | 83.82 s | 0.07 s | 56.28 s | 168.0 s | ❌ (Lento) |
 
 ---
 
