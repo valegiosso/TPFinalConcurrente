@@ -13,11 +13,11 @@ public class PoliticaAleatoria implements Politica {
     private final Random random = new Random();
 
     @Override
-    public int decidirTransicion(boolean[] habilitadas, boolean[] conHilosEsperando) {
+    public int decidirTransicion(boolean[] m) {
         List<Integer> candidatas = new ArrayList<>();
 
-        for (int i = 0; i < habilitadas.length; i++) {
-            if (habilitadas[i] && conHilosEsperando[i]) {
+        for (int i = 0; i < m.length; i++) {
+            if (m[i]) {
                 candidatas.add(i);
             }
         }

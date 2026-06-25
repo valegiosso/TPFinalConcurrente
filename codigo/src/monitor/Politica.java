@@ -7,12 +7,11 @@ package monitor;
 public interface Politica {
 
     /**
-     * Dado un conjunto de transiciones habilitadas y cuales tienen hilos esperando,
-     * decide cual transicion debe ser despertada.
+     * Dado el vector 'm' (resultado de hacer el AND entre las transiciones habilitadas y 
+     * las que tienen hilos esperando), decide cual transicion debe ser despertada.
      *
-     * @param habilitadas       arreglo donde habilitadas[i] = true si la transicion i esta sensibilizada
-     * @param conHilosEsperando arreglo donde conHilosEsperando[i] = true si hay hilos esperando en la condicion i
+     * @param m arreglo donde m[i] = true si la transicion i esta sensibilizada y tiene hilos esperando
      * @return indice de la transicion a despertar, o -1 si no hay ninguna candidata
      */
-    int decidirTransicion(boolean[] habilitadas, boolean[] conHilosEsperando);
+    int decidirTransicion(boolean[] m);
 }

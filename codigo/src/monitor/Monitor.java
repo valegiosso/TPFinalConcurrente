@@ -56,14 +56,14 @@ public class Monitor implements MonitorInterface {
                 long espera = rdp.tiempoRestante(transition);
                 rdp.setEsperando(transition, true);
                 mutex.release();
-                
+
                 try {
                     Thread.sleep(espera);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return false;
                 }
-                
+
                 try {
                     mutex.acquire();
                 } catch (InterruptedException e) {
@@ -89,10 +89,19 @@ public class Monitor implements MonitorInterface {
                 boolean[] sensibilizadas = rdp.getSensibilizadasPorMarcado();
                 boolean[] quienesEstan = colas.quienesEstan();
 
-                // Consultar politica para despertar hilos
-                int seleccionada = politica.decidirTransicion(sensibilizadas, quienesEstan);
+                // Calcular 'm' (sensibilizadas AND quienesEstan) y verificar si hay al menos una transicion
+                boolean[] m = new boolean[sensibilizadas.length];
+                boolean m_distinto_de_cero = false;
+                for (int i = 0; i < sensibilizadas.length; i++) {
+                    m[i] = sensibilizadas[i] && quienesEstan[i];
+                    if (m[i]) {
+                        m_distinto_de_cero = true;
+                    }
+                }
 
-                if (seleccionada >= 0) {
+                if (m_distinto_de_cero) {
+                    // Consultar politica para despertar hilos
+                    int seleccionada = politica.decidirTransicion(m);
                     colas.release(seleccionada);
                     return true; // Sale del monitor sin liberar mutex (pasando el testigo)
                 } else {
@@ -101,7 +110,7 @@ public class Monitor implements MonitorInterface {
             } else {
                 mutex.release();
                 colas.acquire(transition);
-                
+
                 // Si al despertar ya termino el programa
                 if (rdp.isFinalizada()) {
                     despertarATodosYSalir();
@@ -115,7 +124,7 @@ public class Monitor implements MonitorInterface {
         mutex.release(); // Si sale del while por m==0 (k=false)
         return true;
     }
-    
+
     private void despertarATodosYSalir() {
         for (int i = 0; i < rdp.getCantidadTransiciones(); i++) {
             colas.release(i);

@@ -23,11 +23,11 @@ public class PoliticaPriorizada implements Politica {
     }
 
     @Override
-    public int decidirTransicion(boolean[] habilitadas, boolean[] conHilosEsperando) {
+    public int decidirTransicion(boolean[] m) {
         // Primero buscar entre las prioritarias
         List<Integer> prioritarias = new ArrayList<>();
         for (int t : transicionesPrioritarias) {
-            if (t < habilitadas.length && habilitadas[t] && conHilosEsperando[t]) {
+            if (t < m.length && m[t]) {
                 prioritarias.add(t);
             }
         }
@@ -36,10 +36,10 @@ public class PoliticaPriorizada implements Politica {
             return prioritarias.get(random.nextInt(prioritarias.size()));
         }
 
-        // Si no hay prioritarias, elegir aleatoriamente entre las demas
+        // Si no hay prioritarias habilitadas, evaluamos las demas.
         List<Integer> candidatas = new ArrayList<>();
-        for (int i = 0; i < habilitadas.length; i++) {
-            if (habilitadas[i] && conHilosEsperando[i]) {
+        for (int i = 0; i < m.length; i++) {
+            if (m[i]) {
                 candidatas.add(i);
             }
         }
