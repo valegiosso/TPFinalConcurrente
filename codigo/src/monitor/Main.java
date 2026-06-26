@@ -4,105 +4,48 @@ package monitor;
  * Clase principal que inicializa y ejecuta el sistema de procesamiento
  * de transacciones de pago modelado con Red de Petri.
  *
- * Configura las matrices (Pre, Post), el marcado inicial, los tiempos,
- * la politica, y arranca los hilos.
+ * Configura la politica de conflictos y arranca los hilos.
+ * La estructura de la red (matriz de incidencia, marcado inicial y tiempos)
+ * esta definida internamente en la clase RdP.
  */
 public class Main {
 
     // Total de invariantes: ver RdP.MAX_INVARIANTES
 
     // Transiciones: T0, T1, T2, T3, T4, T5, T6, T7, T8, T9
-    // Plazas:       P0, P1, P2, P3, P4, P5, P6, P7, P8, P9
+    // Plazas: P0, P1, P2, P3, P4, P5, P6, P7, P8, P9
 
     public static void main(String[] args) {
 
         // ====================================================================
-        // 1. DEFINIR LAS MATRICES DE LA RED (datos extraidos de PIPE/bitacora)
+        // 1. CREAR RED DE PETRI Y LOGGER
         // ====================================================================
 
-        // Matriz Pre (I-): lo que cada transicion CONSUME de cada plaza
-        //              T0  T1  T2  T3  T4  T5  T6  T7  T8  T9
-        int[][] pre = {
-            /* P0 */ {  1,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-            /* P1 */ {  0,  1,  0,  0,  1,  0,  1,  0,  0,  0 },
-            /* P2 */ {  0,  0,  1,  0,  0,  0,  0,  0,  0,  0 },
-            /* P3 */ {  0,  0,  0,  1,  0,  0,  0,  0,  0,  0 },
-            /* P4 */ {  0,  0,  0,  0,  0,  1,  0,  0,  0,  0 },
-            /* P5 */ {  0,  0,  0,  0,  0,  0,  0,  1,  0,  0 },
-            /* P6 */ {  0,  0,  0,  0,  0,  0,  0,  0,  1,  0 },
-            /* P7 */ {  0,  1,  0,  0,  1,  0,  0,  0,  0,  0 },
-            /* P8 */ {  0,  0,  0,  0,  1,  0,  1,  0,  0,  0 },
-            /* P9 */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  1 },
-        };
-
-        // Matriz Post (I+): lo que cada transicion PRODUCE en cada plaza
-        //               T0  T1  T2  T3  T4  T5  T6  T7  T8  T9
-        int[][] post = {
-            /* P0 */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  1 },
-            /* P1 */ {  1,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
-            /* P2 */ {  0,  1,  0,  0,  0,  0,  0,  0,  0,  0 },
-            /* P3 */ {  0,  0,  1,  0,  0,  0,  0,  0,  0,  0 },
-            /* P4 */ {  0,  0,  0,  0,  1,  0,  0,  0,  0,  0 },
-            /* P5 */ {  0,  0,  0,  0,  0,  0,  1,  0,  0,  0 },
-            /* P6 */ {  0,  0,  0,  0,  0,  0,  0,  1,  0,  0 },
-            /* P7 */ {  0,  0,  0,  1,  0,  1,  0,  0,  0,  0 },
-            /* P8 */ {  0,  0,  0,  0,  0,  1,  0,  0,  1,  0 },
-            /* P9 */ {  0,  0,  0,  1,  0,  1,  0,  0,  1,  0 },
-        };
-
-        // Marcado inicial
-        //              P0  P1  P2  P3  P4  P5  P6  P7  P8  P9
-        int[] m0 = {     3,  0,  0,  0,  0,  0,  0,  1,  1,  0 };
-
-        // ====================================================================
-        // 2. DEFINIR TIEMPOS DE LAS TRANSICIONES TEMPORALES
-        // ====================================================================
-        // Transiciones temporales: T2, T3, T5, T7, T8
-        // [alfa, beta] en milisegundos. Transiciones inmediatas: [0, 0]
-        // TODO: Ajustar los valores para que 200 invariantes tarden entre 20-40 seg
-
-        int cantTransiciones = 10;
-        SensibilizadoConTiempo[] tiempos = new SensibilizadoConTiempo[cantTransiciones];
-
-        tiempos[0] = new SensibilizadoConTiempo(0, 0);       // T0: inmediata
-        tiempos[1] = new SensibilizadoConTiempo(0, 0);       // T1: inmediata
-        tiempos[4] = new SensibilizadoConTiempo(0, 0);       // T4: inmediata
-        tiempos[6] = new SensibilizadoConTiempo(0, 0);       // T6: inmediata
-        tiempos[9] = new SensibilizadoConTiempo(0, 0);       // T9: inmediata
-        tiempos[2] = new SensibilizadoConTiempo(100, Long.MAX_VALUE);       // T2: [100ms, inf]
-        tiempos[3] = new SensibilizadoConTiempo(100, Long.MAX_VALUE);       // T3: [100ms, inf]
-        tiempos[5] = new SensibilizadoConTiempo(150, Long.MAX_VALUE);       // T5: [150ms, inf]
-        tiempos[7] = new SensibilizadoConTiempo(120, Long.MAX_VALUE);       // T7: [120ms, inf]
-        tiempos[8] = new SensibilizadoConTiempo(120, Long.MAX_VALUE);       // T8: [120ms, inf]
-        // ====================================================================
-
-        VectorSensibilizadas vectorSensibilizadas = new VectorSensibilizadas(cantTransiciones, tiempos);
         Logger logger = new Logger("log_disparos.txt");
-
-        RdP rdp = new RdP(pre, post, m0, vectorSensibilizadas, logger);
+        RdP rdp = new RdP(logger);
 
         // ====================================================================
-        // 4. CREAR POLITICA
+        // 2. CREAR POLITICA
         // ====================================================================
         // Descomentar una u otra para probar:
 
-        //Politica politica = new PoliticaAleatoria("Politica Aleatoria");
-        Politica politica = new PoliticaPriorizada("Politica Priorizada",new int[]{4, 5}); // prioriza alto riesgo
+        Politica politica = new PoliticaAleatoria("Politica Aleatoria");
+        // Politica politica = new PoliticaPriorizada("Politica Priorizada",new int[]{4,
+        // 5}); // prioriza alto riesgo
 
         // ====================================================================
-        // 5. CREAR MONITOR
+        // 3. CREAR MONITOR
         // ====================================================================
 
         Monitor monitor = new Monitor(rdp, politica);
 
-
         // ====================================================================
-        // 6. CREAR E INICIAR HILOS
+        // 4. CREAR E INICIAR HILOS
         // ====================================================================
         // Asignacion de transiciones segun invariantes de transicion:
-        //   T-Inv 1: T0, T1, T2, T3, T9 (flujo tarjeta)
-        //   T-Inv 2: T0, T4, T5, T9      (flujo alto riesgo)
-        //   T-Inv 3: T0, T6, T7, T8, T9  (flujo transferencia)
+        // T-Inv 1: T0, T1, T2, T3, T9 (flujo tarjeta)
+        // T-Inv 2: T0, T4, T5, T9 (flujo alto riesgo)
+        // T-Inv 3: T0, T6, T7, T8, T9 (flujo transferencia)
         //
         // Conflicto en T0 (admision): un hilo generador se encarga de T0.
         // T9 es el join final: un hilo de salida se encarga de T9.
@@ -111,20 +54,20 @@ public class Main {
         // Todos los hilos usan la misma clase generica HiloBase; lo que los
         // diferencia es el conjunto de transiciones que tienen asignado.
         Thread hiloGenerador = new Thread(
-            new HiloBase(monitor, new int[]{0}), "HiloGenerador");
+                new HiloBase(monitor, new int[] { 0 }), "HiloGenerador");
 
         Thread hiloTarjetas = new Thread(
-            new HiloBase(monitor, new int[]{1, 2, 3}), "HiloTarjetas");
+                new HiloBase(monitor, new int[] { 1, 2, 3 }), "HiloTarjetas");
 
         Thread hiloAltoRiesgo = new Thread(
-            new HiloBase(monitor, new int[]{4, 5}), "HiloAltoRiesgo");
+                new HiloBase(monitor, new int[] { 4, 5 }), "HiloAltoRiesgo");
 
         Thread hiloTransferencias = new Thread(
-            new HiloBase(monitor, new int[]{6, 7, 8}), "HiloTransferencias");
+                new HiloBase(monitor, new int[] { 6, 7, 8 }), "HiloTransferencias");
 
         // Hilo de salida que dispara T9 (deposita en buffer de salida)
         Thread hiloSalida = new Thread(
-            new HiloBase(monitor, new int[]{9}), "HiloSalida");
+                new HiloBase(monitor, new int[] { 9 }), "HiloSalida");
 
         // Registrar tiempo de inicio
         long tiempoInicio = System.currentTimeMillis();
@@ -137,7 +80,7 @@ public class Main {
         hiloSalida.start();
 
         // ====================================================================
-        // 7. ESPERAR FINALIZACION
+        // 5. ESPERAR FINALIZACION
         // ====================================================================
 
         try {
@@ -151,7 +94,7 @@ public class Main {
         }
 
         // ====================================================================
-        // 8. REPORTES FINALES
+        // 6. REPORTES FINALES
         // ====================================================================
 
         long tiempoFin = System.currentTimeMillis();

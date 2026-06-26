@@ -72,7 +72,7 @@ print()
 print(f"  Coincidencias (invariantes completados): {coincidencias}")
 print(f"    Tarjetas       (T0T1T2T3T9): {invariantes_transicion['Tarjetas']}")
 print(f"    Alto Riesgo    (T0T4T5T9):   {invariantes_transicion['AltoRiesgo']}")
-print(f"    Transferencias (T0T6T7T8T9): {invariantes_transicion['AltoRiesgo']}")
+print(f"    Transferencias (T0T6T7T8T9): {invariantes_transicion['Transferencias']}")
 print("=" * 55)
 
 sys.exit(0 if len(result[0]) == 0 else 1)

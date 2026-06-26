@@ -1,11 +1,12 @@
 package monitor;
 
 /**
- * Representa la Red de Petri con sus matrices Pre y Post,
+ * Representa la Red de Petri con su matriz de incidencia (W = Post - Pre),
  * el vector de estado (marcado) y el vector de sensibilizadas.
  *
- * Maneja internamente los contadores de invariantes de transicion
- * para saber cuando detener la ejecucion.
+ * Define internamente la estructura de la red (matriz, marcado inicial,
+ * tiempos de transicion) y maneja los contadores de invariantes de
+ * transicion para saber cuando detener la ejecucion.
  */
 public class RdP {
 
@@ -21,22 +22,52 @@ public class RdP {
     // Contador de disparos de T9 (invariantes completados)
     private int contadorSalida  = 0;
 
-    private final int[][] matrizPre;
-    private final int[][] matrizPost;
+    private final int[][] matIncidencia;
     private final int[] marcadoActual;
     private final VectorSensibilizadas vectorSensibilizadas;
     private final Logger logger;
 
-    public RdP(int[][] matrizPre, int[][] matrizPost, int[] marcadoInicial,
-               VectorSensibilizadas vectorSensibilizadas, Logger logger) {
-        this.matrizPre = matrizPre;
-        this.matrizPost = matrizPost;
-        this.marcadoActual = java.util.Arrays.copyOf(marcadoInicial, marcadoInicial.length);
-        this.vectorSensibilizadas = vectorSensibilizadas;
+    public RdP(Logger logger) {
         this.logger = logger;
 
+        // Matriz de incidencia W = Post - Pre (datos extraidos de PIPE/bitacora)
+        //                    T0  T1  T2  T3  T4  T5  T6  T7  T8  T9
+        this.matIncidencia = new int[][] {
+            /* P0 */ {  -1,  0,  0,  0,  0,  0,  0,  0,  0,  1 },
+            /* P1 */ {   1, -1,  0,  0, -1,  0, -1,  0,  0,  0 },
+            /* P2 */ {   0,  1, -1,  0,  0,  0,  0,  0,  0,  0 },
+            /* P3 */ {   0,  0,  1, -1,  0,  0,  0,  0,  0,  0 },
+            /* P4 */ {   0,  0,  0,  0,  1, -1,  0,  0,  0,  0 },
+            /* P5 */ {   0,  0,  0,  0,  0,  0,  1, -1,  0,  0 },
+            /* P6 */ {   0,  0,  0,  0,  0,  0,  0,  1, -1,  0 },
+            /* P7 */ {   0, -1,  0,  1, -1,  1,  0,  0,  0,  0 },
+            /* P8 */ {   0,  0,  0,  0, -1,  1, -1,  0,  1,  0 },
+            /* P9 */ {   0,  0,  0,  1,  0,  1,  0,  0,  1, -1 },
+        };
+
+        // Marcado inicial
+        //                  P0  P1  P2  P3  P4  P5  P6  P7  P8  P9
+        this.marcadoActual = new int[] { 3, 0, 0, 0, 0, 0, 0, 1, 1, 0 };
+
+        // Tiempos de transicion [alfa, beta] en milisegundos
+        // Transiciones inmediatas: [0, 0]
+        int cantTransiciones = 10;
+        SensibilizadoConTiempo[] tiempos = new SensibilizadoConTiempo[cantTransiciones];
+        tiempos[0] = new SensibilizadoConTiempo(0, 0);                   // T0: inmediata
+        tiempos[1] = new SensibilizadoConTiempo(0, 0);                   // T1: inmediata
+        tiempos[2] = new SensibilizadoConTiempo(100, Long.MAX_VALUE);    // T2: [100ms, inf]
+        tiempos[3] = new SensibilizadoConTiempo(100, Long.MAX_VALUE);    // T3: [100ms, inf]
+        tiempos[4] = new SensibilizadoConTiempo(0, 0);                   // T4: inmediata
+        tiempos[5] = new SensibilizadoConTiempo(150, Long.MAX_VALUE);    // T5: [150ms, inf]
+        tiempos[6] = new SensibilizadoConTiempo(0, 0);                   // T6: inmediata
+        tiempos[7] = new SensibilizadoConTiempo(120, Long.MAX_VALUE);    // T7: [120ms, inf]
+        tiempos[8] = new SensibilizadoConTiempo(120, Long.MAX_VALUE);    // T8: [120ms, inf]
+        tiempos[9] = new SensibilizadoConTiempo(0, 0);                   // T9: inmediata
+
+        this.vectorSensibilizadas = new VectorSensibilizadas(cantTransiciones, tiempos);
+
         // Calcular sensibilizacion inicial
-        this.vectorSensibilizadas.update(this.marcadoActual, this.matrizPre);
+        this.vectorSensibilizadas.update(this.marcadoActual, this.matIncidencia);
     }
 
     /**
@@ -51,16 +82,16 @@ public class RdP {
             return false;
         }
 
-        // Ejecutar el disparo: M = M - Pre(:,t) + Post(:,t)
+        // Ejecutar el disparo: M = M + W(:,t)
         for (int i = 0; i < marcadoActual.length; i++) {
-            marcadoActual[i] = marcadoActual[i] - matrizPre[i][transition] + matrizPost[i][transition];
+            marcadoActual[i] = marcadoActual[i] + matIncidencia[i][transition];
         }
 
         // Resetear el estado "esperando" de la transicion disparada
         vectorSensibilizadas.getTiempo(transition).resetEsperando();
 
         // Recalcular sensibilizacion para todas las transiciones
-        vectorSensibilizadas.update(marcadoActual, matrizPre);
+        vectorSensibilizadas.update(marcadoActual, matIncidencia);
 
         // Registrar en el log
         if (logger != null) {

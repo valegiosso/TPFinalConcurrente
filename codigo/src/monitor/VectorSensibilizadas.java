@@ -73,16 +73,16 @@ public class VectorSensibilizadas {
 
     /**
      * Recalcula que transiciones estan sensibilizadas segun el marcado actual
-     * y la matriz Pre. Una transicion t esta sensibilizada si para toda plaza p:
-     *   marcado[p] >= matrizPre[p][t]
+     * y la matriz de incidencia. Una transicion t esta sensibilizada si para
+     * toda plaza p: marcado[p] + matIncidencia[p][t] >= 0
      */
-    public void update(int[] marcado, int[][] matrizPre) {
+    public void update(int[] marcado, int[][] matIncidencia) {
         int cantTransiciones = sensibilizadas.length;
 
         for (int t = 0; t < cantTransiciones; t++) {
             boolean habilitada = true;
             for (int p = 0; p < marcado.length; p++) {
-                if (marcado[p] < matrizPre[p][t]) {
+                if (marcado[p] + matIncidencia[p][t] < 0) {
                     habilitada = false;
                     break;
                 }
