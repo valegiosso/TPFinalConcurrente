@@ -12,12 +12,10 @@ import java.io.PrintWriter;
 public class Logger {
 
     private PrintWriter writer;
-    private final String archivoPath;
 
     public Logger(String archivoPath) {
-        this.archivoPath = archivoPath;
         try {
-            this.writer = new PrintWriter(new FileWriter(archivoPath), true); // autoflush
+            this.writer = new PrintWriter(new FileWriter(archivoPath), true);
         } catch (IOException e) {
             System.err.println("Error al crear archivo de log: " + e.getMessage());
         }
