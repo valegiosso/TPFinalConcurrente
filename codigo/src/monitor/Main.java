@@ -21,7 +21,15 @@ public class Main {
                 // 1. CREAR RED DE PETRI Y LOGGER
                 // ====================================================================
 
-                Logger logger = new Logger("log_disparos.txt");
+                // Detecta automaticamente la ruta para guardar el log siempre dentro de la
+                // carpeta codigo
+                String logPath = "log_disparos.txt";
+                if (new java.io.File("TPFinalConcurrente/codigo").exists()) {
+                        logPath = "TPFinalConcurrente/codigo/log_disparos.txt";
+                } else if (new java.io.File("codigo").exists()) {
+                        logPath = "codigo/log_disparos.txt";
+                }
+                Logger logger = new Logger(logPath);
                 RdP rdp = new RdP(logger);
 
                 // ====================================================================
@@ -29,9 +37,10 @@ public class Main {
                 // ====================================================================
                 // Descomentar una u otra para probar:
 
-                // Politica politica = new PoliticaAleatoria("Politica Aleatoria");
-                Politica politica = new PoliticaPriorizada("Politica Priorizada", new int[] { 4, 5 }); // prioriza alto
-                                                                                                       // riesgo
+                Politica politica = new PoliticaAleatoria("Politica Aleatoria");
+                // Politica politica = new PoliticaPriorizada("Politica Priorizada", new int[] {
+                // 4, 5 }); // prioriza alto
+                // riesgo
 
                 // ====================================================================
                 // 3. CREAR MONITOR
