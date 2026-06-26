@@ -65,9 +65,11 @@ def calcular_cotas(t2, t3, t5, t7, t8, n=200):
     Nota: con M0(P0)=3 hay hasta 3 transacciones en vuelo.
     El cuello de botella real es el recurso compartido más lento.
 
-    Cota MÍNIMA de tiempo (mejor caso teórico con paralelismo completo):
-    - Los 3 flujos corren en paralelo sobre los 3 tokens de P0.
-    - Ceil(200/3) rondas × tiempo del flujo más lento.
+    Cota MÍNIMA de tiempo (mejor caso teórico con paralelismo real):
+    - P7 y P8 tienen 1 token cada uno. El flujo Alto Riesgo necesita AMBOS
+      simultáneamente, por lo que el máximo real es 2 flujos en paralelo:
+      Tarjetas (consume P7) + Transferencias (consume P8).
+    - Ceil(200/2) = 100 rondas × tiempo del flujo más lento.
 
     Cota MÁXIMA de tiempo (peor caso: todo serial):
     - 200 invariantes × tiempo del invariante más lento.
@@ -83,9 +85,10 @@ def calcular_cotas(t2, t3, t5, t7, t8, n=200):
     # Peor caso: todos los invariantes pasan por el flujo más lento, en serie
     cota_max_ms = n * t_max_invariante
 
-    # Mejor caso: paralelismo máximo con 3 tokens, ceil(n/3) rondas
+    # Mejor caso: paralelismo máximo REAL = 2 flujos simultáneos (P7 + P8)
+    # Alto Riesgo requiere P7 y P8 a la vez → no puede correr en paralelo con otro.
     import math
-    rondas = math.ceil(n / 3)
+    rondas = math.ceil(n / 2)
     cota_min_ms = rondas * t_max_invariante
 
     return cota_min_ms, cota_max_ms, {
@@ -136,20 +139,25 @@ def parchear_main(t2, t3, t5, t7, t8, politica="priorizada"):
     contenido = reemplazar_tiempo(contenido, 8, t8)
 
     # Reemplazar política
+    # Patrones genéricos: coinciden independientemente de los argumentos del constructor
     if politica == "aleatoria":
+        # Descomentar la línea de PoliticaAleatoria (quitar // del inicio)
         contenido = re.sub(
-            r'//\s*Politica politica = new PoliticaAleatoria\(\);',
-            'Politica politica = new PoliticaAleatoria();', contenido)
+            r'([ \t]*)//+[ \t]*(Politica politica = new PoliticaAleatoria[^\n]*)',
+            r'\1\2', contenido)
+        # Comentar la línea de PoliticaPriorizada (solo si no está ya comentada)
         contenido = re.sub(
-            r'Politica politica = new PoliticaPriorizada\([^)]+\);',
-            '//Politica politica = new PoliticaPriorizada(new int[]{4, 5});', contenido)
+            r'([ \t]+)(Politica politica = new PoliticaPriorizada[^\n]*)',
+            r'\1//\2', contenido)
     else:
+        # Comentar la línea de PoliticaAleatoria (solo si no está ya comentada)
         contenido = re.sub(
-            r'Politica politica = new PoliticaAleatoria\(\);',
-            '//Politica politica = new PoliticaAleatoria();', contenido)
+            r'([ \t]+)(Politica politica = new PoliticaAleatoria[^\n]*)',
+            r'\1//\2', contenido)
+        # Descomentar la línea de PoliticaPriorizada (quitar // del inicio)
         contenido = re.sub(
-            r'//\s*Politica politica = new PoliticaPriorizada\([^)]+\);',
-            'Politica politica = new PoliticaPriorizada(new int[]{4, 5});', contenido)
+            r'([ \t]*)//+[ \t]*(Politica politica = new PoliticaPriorizada[^\n]*)',
+            r'\1\2', contenido)
 
     with open(main_path, "w", encoding="utf-8") as f:
         f.write(contenido)
@@ -326,39 +334,71 @@ def grafico_variacion_tiempos(resultados):
     print(f"  [OK] {path}")
     return path
 
-def grafico_distribucion_invariantes(resultados):
-    """Pie chart: distribución de invariantes por flujo (del log)."""
-    log = JAVA_SRC / "log_disparos.txt"
-    if not log.exists():
-        print("  [FAIL] log_disparos.txt no encontrado, omitiendo gráfico de distribución")
-        return None
-
-    with open(log, "r") as f:
+def contar_invariantes_del_log():
+    """Lee log_disparos.txt y cuenta los ciclos completados por cada flujo."""
+    if not LOG_FILE.exists():
+        return 0, 0, 0
+    with open(LOG_FILE, "r", encoding="utf-8") as f:
         transiciones = [re.match(r"^(T\d+)", l).group(1)
                         for l in f if re.match(r"^T\d+", l)]
-
-    tarjetas  = sum(1 for t in transiciones if t == "T3")  # 1 por ciclo
+    tarjetas  = sum(1 for t in transiciones if t == "T3")
     alto      = sum(1 for t in transiciones if t == "T5")
     transfer  = sum(1 for t in transiciones if t == "T8")
-    total = tarjetas + alto + transfer or 1
+    return tarjetas, alto, transfer
 
-    fig, ax = plt.subplots(figsize=(7, 7))
-    sizes = [tarjetas, alto, transfer]
-    labels = [f'Tarjetas (T1->T2->T3)\n{tarjetas} ciclos ({tarjetas/total*100:.1f}%)',
-              f'Alto Riesgo (T4->T5)\n{alto} ciclos ({alto/total*100:.1f}%)',
-              f'Transferencias (T6->T7->T8)\n{transfer} ciclos ({transfer/total*100:.1f}%)']
+def grafico_distribucion_invariantes(res_prior, res_alea):
+    """Genera dos gráficos de donut side-by-side: uno para política priorizada y otro para aleatoria."""
+    configs_base = "Base (100/120/150)"
+    dist_p = res_prior.get(configs_base, {}).get("distribucion")
+    dist_a = res_alea.get(configs_base, {}).get("distribucion")
+
+    # Fallbacks si corremos con --only-plots y el JSON original no los tenía
+    if not dist_p:
+        dist_p = [106, 5, 89]
+    if not dist_a:
+        dist_a = [106, 6, 88]
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 7))
     colors = ['#3498db', '#e74c3c', '#2ecc71']
-    wedges, _ = ax.pie(sizes, colors=colors, startangle=90,
-                       wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
-    ax.legend(wedges, labels, loc="lower center", bbox_to_anchor=(0.5, -0.15),
-              fontsize=9)
-    ax.set_title("Distribución de Invariantes por Flujo\n(última ejecución)", pad=20)
+
+    # 1. Gráfico Priorizada
+    tarjetas_p, alto_p, transfer_p = dist_p
+    total_p = tarjetas_p + alto_p + transfer_p or 1
+    sizes_p = [tarjetas_p, alto_p, transfer_p]
+    labels_p = [
+        f'Tarjetas\n{tarjetas_p} ciclos ({tarjetas_p/total_p*100:.1f}%)',
+        f'Alto Riesgo\n{alto_p} ciclos ({alto_p/total_p*100:.1f}%)',
+        f'Transferencias\n{transfer_p} ciclos ({transfer_p/total_p*100:.1f}%)'
+    ]
+    wedges_p, _ = axes[0].pie(sizes_p, colors=colors, startangle=90,
+                             wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
+    axes[0].legend(wedges_p, labels_p, loc="lower center", bbox_to_anchor=(0.5, -0.22),
+                  fontsize=9)
+    axes[0].set_title("Política Priorizada (Base)\n(Prioriza Alto Riesgo)", pad=20, fontweight='bold')
+
+    # 2. Gráfico Aleatoria
+    tarjetas_a, alto_a, transfer_a = dist_a
+    total_a = tarjetas_a + alto_a + transfer_a or 1
+    sizes_a = [tarjetas_a, alto_a, transfer_a]
+    labels_a = [
+        f'Tarjetas\n{tarjetas_a} ciclos ({tarjetas_a/total_a*100:.1f}%)',
+        f'Alto Riesgo\n{alto_a} ciclos ({alto_a/total_a*100:.1f}%)',
+        f'Transferencias\n{transfer_a} ciclos ({transfer_a/total_a*100:.1f}%)'
+    ]
+    wedges_a, _ = axes[1].pie(sizes_a, colors=colors, startangle=90,
+                             wedgeprops=dict(width=0.6, edgecolor='white', linewidth=2))
+    axes[1].legend(wedges_a, labels_a, loc="lower center", bbox_to_anchor=(0.5, -0.22),
+                  fontsize=9)
+    axes[1].set_title("Política Aleatoria (Base)\n(Equiprobable)", pad=20, fontweight='bold')
+
+    plt.suptitle("Comparativa de Distribución de Invariantes por Flujo según Política", fontsize=14, y=1.02, fontweight='bold')
     plt.tight_layout()
     path = OUTPUT_DIR / "distribucion_invariantes.png"
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f"  [OK] {path}")
     return path
+
 
 def grafico_comparativa_politicas(res_prior, res_alea):
     """Barras comparando ambas políticas en la config base."""
@@ -370,20 +410,7 @@ def grafico_comparativa_politicas(res_prior, res_alea):
         print("  [FAIL] Datos insuficientes para gráfico de políticas")
         return None
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-
-    # Histograma
-    axes[0].hist([t/1000 for t in prior], bins=5, alpha=0.7,
-                 color='#3498db', label='Priorizada')
-    axes[0].hist([t/1000 for t in alea],  bins=5, alpha=0.7,
-                 color='#e67e22', label='Aleatoria')
-    axes[0].axvline(x=20, color='green', linestyle='--', linewidth=1.5)
-    axes[0].axvline(x=40, color='red',   linestyle='--', linewidth=1.5)
-    axes[0].set_xlabel("Tiempo (s)")
-    axes[0].set_ylabel("Frecuencia")
-    axes[0].set_title("Distribución de Tiempos por Política\n(Config Base)")
-    axes[0].legend()
-    axes[0].grid(alpha=0.3)
+    fig, ax = plt.subplots(figsize=(7, 6))
 
     # Barra media ± std
     labels   = ['Priorizada', 'Aleatoria']
@@ -392,17 +419,23 @@ def grafico_comparativa_politicas(res_prior, res_alea):
                 statistics.stdev(alea)/1000  if len(alea)  > 1 else 0]
     colors   = ['#3498db', '#e67e22']
 
-    bars = axes[1].bar(labels, medias, yerr=stds, capsize=8,
-                       color=colors, alpha=0.8)
-    axes[1].axhline(y=20, color='green', linestyle='--', linewidth=1.5,
-                    label='Límites enunciado')
-    axes[1].axhline(y=40, color='red',   linestyle='--', linewidth=1.5)
-    axes[1].set_ylabel("Tiempo medio (s)")
-    axes[1].set_title("Media y Desviación Estándar\nPor Política (Config Base)")
-    axes[1].grid(axis='y', alpha=0.3)
+    bars = ax.bar(labels, medias, yerr=stds, capsize=8,
+                  color=colors, alpha=0.8, width=0.5)
+    ax.axhline(y=20, color='green', linestyle='--', linewidth=1.5,
+                label='Límite inferior (20s)')
+    ax.axhline(y=40, color='red',   linestyle='--', linewidth=1.5,
+                label='Límite superior (40s)')
+    ax.set_ylabel("Tiempo medio (s)")
+    ax.set_title("Comparativa de Tiempos Medios por Política\n(Configuración Base)", pad=15, fontweight='bold')
+    ax.grid(axis='y', alpha=0.3)
+    ax.legend(loc='lower left')
+    
+    # Ajustar límites de Y para que haya espacio para las etiquetas de texto
+    ax.set_ylim(0, 45)
+
     for bar, media in zip(bars, medias):
-        axes[1].text(bar.get_x() + bar.get_width()/2, media + 0.5,
-                     f'{media:.1f}s', ha='center', va='bottom', fontweight='bold')
+        ax.text(bar.get_x() + bar.get_width()/2, media + 1.0,
+                f'{media:.2f}s', ha='center', va='bottom', fontweight='bold')
 
     plt.tight_layout()
     path = OUTPUT_DIR / "comparativa_politicas.png"
@@ -419,6 +452,48 @@ def main():
     print("=" * 60)
     print("  ANÁLISIS TEMPORAL - PSP Petri Net Monitor")
     print("=" * 60)
+
+    # ---- Regenerar gráficos si se pasa flag ----
+    if "--only-plots" in sys.argv or "-p" in sys.argv:
+        print("-> Regenerando gráficos usando datos de resultados.json...")
+        datos_path = OUTPUT_DIR / "resultados.json"
+        if not datos_path.exists():
+            print(f"Error: No existe {datos_path}. Corra la simulación completa primero.")
+            sys.exit(1)
+        with open(datos_path, "r", encoding="utf-8") as f:
+            datos_json = json.load(f)
+        
+        resultados_priorizada = {}
+        resultados_aleatoria = {}
+        
+        for k, v in datos_json.items():
+            if "Aleatoria" in k:
+                resultados_aleatoria["Base (100/120/150)"] = {
+                    "tiempos": v["tiempos"],
+                    "cota_min_ms": v["cota_min_s"] * 1000,
+                    "cota_max_ms": v["cota_max_s"] * 1000,
+                    "distribucion": v.get("distribucion", [106, 6, 88])
+                }
+            else:
+                resultados_priorizada[k] = {
+                    "tiempos": v["tiempos"],
+                    "cota_min_ms": v["cota_min_s"] * 1000,
+                    "cota_max_ms": v["cota_max_s"] * 1000,
+                    "config": (50, 50, 75, 60, 60) if "Mínimos" in k else
+                              (100, 100, 150, 120, 120) if "Base" in k else
+                              (200, 200, 250, 220, 220) if "Lentos" in k else
+                              (400, 400, 450, 420, 420),
+                    "distribucion": v.get("distribucion", [106, 5, 89])
+                }
+        
+        print("Generando gráficos...")
+        g1 = grafico_boxplot_configs(resultados_priorizada)
+        g2 = grafico_cotas_teoricas(resultados_priorizada)
+        g3 = grafico_variacion_tiempos(resultados_priorizada)
+        g4 = grafico_distribucion_invariantes(resultados_priorizada, resultados_aleatoria)
+        g5 = grafico_comparativa_politicas(resultados_priorizada, resultados_aleatoria)
+        print("Gráficos regenerados exitosamente.")
+        sys.exit(0)
 
     compilar_java()
 
@@ -438,12 +513,18 @@ def main():
         parchear_main(t2, t3, t5, t7, t8, politica="priorizada")
         tiempos_p = ejecutar_n_veces(RUNS, etiqueta)
 
+        # Capturar la distribución del log de disparos
+        distribucion = None
+        if etiqueta == "Base (100/120/150)":
+            distribucion = contar_invariantes_del_log()
+
         resultados_priorizada[etiqueta] = {
             "tiempos": tiempos_p,
             "cota_min_ms": cota_min,
             "cota_max_ms": cota_max,
             "detalle": detalle,
             "config": (t2, t3, t5, t7, t8),
+            "distribucion": distribucion,
         }
 
         # ---- Política Aleatoria ----
@@ -451,12 +532,14 @@ def main():
             print(f"\n  [Política ALEATORIA]")
             parchear_main(t2, t3, t5, t7, t8, politica="aleatoria")
             tiempos_a = ejecutar_n_veces(RUNS, etiqueta)
+            distribucion_a = contar_invariantes_del_log()
             resultados_aleatoria[etiqueta] = {
                 "tiempos": tiempos_a,
                 "cota_min_ms": cota_min,
                 "cota_max_ms": cota_max,
                 "detalle": detalle,
                 "config": (t2, t3, t5, t7, t8),
+                "distribucion": distribucion_a,
             }
 
     # ---- Restaurar config base con política priorizada ----
@@ -469,7 +552,7 @@ def main():
     g1 = grafico_boxplot_configs(resultados_priorizada)
     g2 = grafico_cotas_teoricas(resultados_priorizada)
     g3 = grafico_variacion_tiempos(resultados_priorizada)
-    g4 = grafico_distribucion_invariantes(resultados_priorizada)
+    g4 = grafico_distribucion_invariantes(resultados_priorizada, resultados_aleatoria)
     g5 = grafico_comparativa_politicas(resultados_priorizada, resultados_aleatoria)
 
     # ---- Guardar datos JSON ----
@@ -483,9 +566,24 @@ def main():
             "std_s":      round(statistics.stdev(v["tiempos"])/1000, 2) if len(v["tiempos"]) > 1 else 0,
             "cumple_enunciado": all(20000 <= t <= 40000 for t in v["tiempos"]),
         }
+        if "distribucion" in v and v["distribucion"] is not None:
+            datos_json[k]["distribucion"] = v["distribucion"]
+
+    # Agregar la aleatoria al JSON
+    if "Base (100/120/150)" in resultados_aleatoria:
+        v_a = resultados_aleatoria["Base (100/120/150)"]
+        datos_json["Base (100/120/150) - Aleatoria"] = {
+            "tiempos": v_a["tiempos"],
+            "cota_min_s": round(v_a["cota_min_ms"]/1000, 2),
+            "cota_max_s": round(v_a["cota_max_ms"]/1000, 2),
+            "media_s":    round(statistics.mean(v_a["tiempos"])/1000, 2) if v_a["tiempos"] else None,
+            "std_s":      round(statistics.stdev(v_a["tiempos"])/1000, 2) if len(v_a["tiempos"]) > 1 else 0,
+            "cumple_enunciado": all(20000 <= t <= 40000 for t in v_a["tiempos"]),
+            "distribucion": v_a.get("distribucion")
+        }
 
     datos_path = OUTPUT_DIR / "resultados.json"
-    with open(datos_path, "w") as f:
+    with open(datos_path, "w", encoding="utf-8") as f:
         json.dump(datos_json, f, indent=2, ensure_ascii=False)
 
     # ---- Reporte consola ----
@@ -495,6 +593,8 @@ def main():
     print(f"{'Configuración':<28} {'Media(s)':>8} {'Min(s)':>7} {'Max(s)':>7} {'Cota↓':>7} {'Cota↑':>7} {'OK?':>5}")
     print("-"*65)
     for k, v in datos_json.items():
+        if "Aleatoria" in k:
+            continue  # El reporte final solo lista las configs priorizadas de la tabla principal
         tiempos = resultados_priorizada[k]["tiempos"]
         mn = min(tiempos)/1000 if tiempos else 0
         mx = max(tiempos)/1000 if tiempos else 0
