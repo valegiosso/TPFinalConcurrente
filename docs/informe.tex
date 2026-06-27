@@ -1,0 +1,172 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+
+\geometry{top=2.5cm, bottom=2.5cm, left=3cm, right=3cm}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+\title{Informe Técnico - Sistema de Procesamiento de Transacciones de Pago (PSP)\\
+\large Trabajo Práctico Final - Programación Concurrente 2026}
+\author{Grupo de Trabajo}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Análisis Estructural y Propiedades de la Red (PIPE)}
+
+Modelamos el sistema mediante la herramienta PIPE para obtener sus propiedades estructurales y verificar el comportamiento del flujo de las transacciones.
+
+\subsection{Propiedades de la Red}
+\begin{itemize}
+    \item \textbf{Vivacidad:} La red es viva (L4-live) y está libre de deadlocks. Esto asegura que cualquier transición puede dispararse infinitamente a lo largo del tiempo bajo la planificación del monitor.
+    \item \textbf{Seguridad y Acotación:} Está acotada. El número máximo de tokens en la red es 3 (debido al marcado inicial en la plaza de entrada $P_0$), lo que impide acumulaciones infinitas de transacciones en circulación.
+\end{itemize}
+
+\subsection{Invariantes de Plaza (P-Invariants)}
+Los invariantes de plaza representan las leyes de conservación de recursos y transacciones del sistema:
+\begin{enumerate}
+    \item $M(P_2) + M(P_3) + M(P_4) + M(P_7) = 1$ \\
+    El recurso de sesión del Gateway de Tarjetas ($P_7$) es único. Se comparte de manera exclusiva entre el flujo de Tarjetas ($P_2, P_3$) y el flujo de Alto Riesgo ($P_4$).
+    \item $M(P_4) + M(P_5) + M(P_6) + M(P_8) = 1$ \\
+    El slot del motor antifraude ($P_8$) es único. Se comparte de manera exclusiva entre el flujo de Alto Riesgo ($P_4$) y el de Transferencias ($P_5, P_6$).
+    \item $M(P_0) + M(P_1) + M(P_2) + M(P_3) + M(P_4) + M(P_5) + M(P_6) + M(P_9) = 3$ \\
+    El total de transacciones activas dentro de todo el circuito de procesamiento es siempre constante e igual a 3.
+\end{enumerate}
+
+\subsection{Invariantes de Transición (T-Invariants)}
+Los invariantes de transición representan los caminos cíclicos (invariantes de consumo) que retornan la red a su marcado inicial tras completar un procesamiento:
+\begin{itemize}
+    \item \textbf{$T_{inv1}$ (Flujo Tarjetas):} $\{T_0, T_1, T_2, T_3, T_9\}$
+    \item \textbf{$T_{inv2}$ (Flujo Alto Riesgo):} $\{T_0, T_4, T_5, T_9\}$
+    \item \textbf{$T_{inv3}$ (Flujo Transferencias):} $\{T_0, T_6, T_7, T_8, T_9\}$
+\end{itemize}
+
+---
+
+\section{Implementación de los Hilos y el Monitor}
+
+\subsection{Estados del Sistema}
+El estado del sistema se define mediante el vector de marcado $M = [P_0, P_1, P_2, P_3, P_4, P_5, P_6, P_7, P_8, P_9]$.
+\begin{itemize}
+    \item \textbf{Estado inicial:} $[3, 0, 0, 0, 0, 0, 0, 1, 1, 0]$ (3 transacciones listas para ingresar, recursos libres).
+    \item \textbf{Estado intermedio común:} $[0, 1, 1, 0, 0, 0, 0, 0, 1, 0]$ (Una transacción admitida, una procesándose en el flujo de Tarjetas, recurso $P_7$ ocupado).
+\end{itemize}
+
+\subsection{Eventos del Sistema}
+Los eventos corresponden al disparo de las transiciones $T_0$ a $T_9$:
+\begin{itemize}
+    \item \textbf{$T_0$ (Admisión):} Toma una transacción de la cola de entrada.
+    \item \textbf{$T_1, T_4, T_6$ (Ruteo):** Asignan la transacción a un flujo tomando los recursos necesarios.
+    \item \textbf{$T_2, T_3, T_5, T_7, T_8$ (Procesamiento):} Simulan el retardo temporal del procesamiento de la etapa.
+    \item \textbf{$T_9$ (Liquidación):} Libera la transacción al buffer de salida.
+\end{itemize}
+
+\subsection{Distribución y Justificación de los Hilos}
+Para lograr el mayor paralelismo posible basándonos en la estructura de los T-invariantes, definimos \textbf{5 hilos independientes}:
+\begin{enumerate}
+    \item \textbf{Hilo Generador (admisión):} Se encarga únicamente de $T_0$. Al haber un conflicto posterior en $P_1$, el paper de la cátedra prescribe independizar la transición previa.
+    \item \textbf{Hilo Tarjetas:} Ejecuta $\{T_1, T_2, T_3\}$, que es una secuencia lineal de transiciones asociadas a este flujo.
+    \item \textbf{Hilo Alto Riesgo:} Ejecuta $\{T_4, T_5\}$.
+    \item \textbf{Hilo Transferencias:} Ejecuta $\{T_6, T_7, T_8\}$.
+    \item \textbf{Hilo Salida (liquidación):} Ejecuta $T_9$ para retirar las transacciones procesadas del join final.
+\end{enumerate}
+
+\subsection{Arquitectura del Monitor}
+\begin{itemize}
+    \item \textbf{Agnóstico a la Red:} El monitor no conoce transiciones específicas ni la estructura de esta red en particular. Todo el estado lógico (marcado, tiempos, disparos) está delegado en la clase \texttt{RdP}, por lo que el monitor es 100\% reutilizable con otras redes.
+    \item \textbf{Passing the Baton:} Implementamos la técnica de ``pasar el testigo''. Al terminar un disparo, el hilo actual calcula el vector $m$ (transiciones sensibilizadas por marcado que tienen hilos esperando en sus colas). Si hay al menos un hilo elegible, se despierta directamente al seleccionado por la política pasándole la exclusión mutua (\texttt{mutex}) del monitor sin liberarla al sistema operativo, evitando despertamientos innecescos y sobrecarga por cambio de contexto.
+\end{itemize}
+
+---
+
+\section{Semántica Temporal y Análisis de Tiempos}
+
+Asignamos las siguientes cotas de tiempo mínima (retardo $\alpha$) para las transiciones temporales:
+\begin{itemize}
+    \item \textbf{Tarjetas:} $T_2 = 100\text{ ms}$, $T_3 = 100\text{ ms}$ (Acumulado de 200 ms).
+    \item \textbf{Alto Riesgo:} $T_5 = 150\text{ ms}$ (Acumulado de 150 ms).
+    \item \textbf{Transferencias:} $T_7 = 120\text{ ms}$, $T_8 = 120\text{ ms}$ (Acumulado de 240 ms).
+\end{itemize}
+
+\subsection{Cota Teórica para N = 200 Invariantes}
+Aunque hay 3 tokens en circulación, la concurrencia está físicamente limitada por los recursos compartidos:
+\begin{itemize}
+    \item $P_7$ y $P_8$ solo tienen 1 token, lo que impide ejecutar más de 2 flujos en paralelo (por ejemplo, Tarjetas y Transferencias al mismo tiempo).
+    \item El flujo más lento es el de \textbf{Transferencias (240 ms)}.
+    \item \textbf{Cota Mínima Teórica:} $\lceil 200 / 2 \rceil \times 240\text{ ms} = 100 \times 240\text{ ms} = \mathbf{24.0 \text{ s}}$.
+    \item \textbf{Cota Máxima Teórica (secuencial puro):} $200 \times 240\text{ ms} = \mathbf{48.0 \text{ s}}$.
+\end{itemize}
+
+\subsection{Resultados Empíricos}
+Al correr el programa con 200 invariantes, los tiempos reales de ejecución medidos en consola arrojan:
+\begin{itemize}
+    \item \textbf{Tiempo Promedio:} $\approx$ 23.5 segundos.
+\end{itemize}
+Esto cumple con el requerimiento del enunciado (\textbf{entre 20 y 40 segundos}). Que en la práctica dé levemente menos de 24.0s se debe a que no todas las transacciones son del flujo lento; al balancearse parte de la carga hacia flujos rápidos (como Tarjetas, 200 ms, o Alto Riesgo, 150 ms), el recurso limitante se libera antes reduciendo el tiempo global.
+
+---
+
+\section{Políticas de Conflicto}
+
+Evaluamos las dos políticas de resolución de conflictos cuando las transiciones compiten en la plaza de bifurcación $P_1$:
+
+\subsection{Política Aleatoria}
+El monitor elige de forma equiprobable entre las transiciones en espera sensibilizadas.
+\begin{itemize}
+    \item \textbf{Resultado:} Tarjetas y Transferencias se reparten casi toda la carga ($\approx 53\%$ y $\approx 44\%$), mientras que Alto Riesgo representa apenas un $3\%$ o menos.
+    \item \textbf{Justificación:} Al ser inmediatas, $T_1$ y $T_6$ consumen un recurso apenas se libera. Para que $T_4$ (Alto Riesgo) se sensibilice, requiere que ambos recursos ($P_7$ y $P_8$) coincidan libres a la vez, lo cual es estadísticamente improbable en un esquema aleatorio sin prioridad.
+\end{itemize}
+
+\subsection{Política Priorizada}
+Configuramos el monitor para dar prioridad estricta al flujo de Alto Riesgo (transiciones $T_4$ y $T_5$).
+\begin{itemize}
+    \item \textbf{Resultado:} Las transacciones de Alto Riesgo suben hasta representar en torno al $6\%$ (12 invariantes de 200).
+    \item \textbf{Justificación:} La prioridad obliga al monitor a despertar a Alto Riesgo cuando ambos recursos coinciden libres. Sin embargo, su porcentaje final sigue siendo moderado debido a que la política solo actúa cuando la transición está efectivamente sensibilizada; si falta algún recurso, la prioridad no puede intervenir.
+\end{itemize}
+
+---
+
+\section{Verificación de Correctitud}
+
+Garantizamos la correctitud de la simulación mediante dos capas de verificación automática:
+\begin{enumerate}
+    \item \textbf{Monitoreo en tiempo de ejecución (P-invariantes):} Tras cada disparo, la clase \texttt{RdP} evalúa que las ecuaciones de invariantes de plaza sumen el número teórico constante. Si hay alguna discrepancia, el sistema se aborta lanzando un error inmediatamente. Todas las corridas verificaron con éxito.
+    \item \textbf{Monitoreo post-mortem (T-invariantes):} Cada disparo se registra en \texttt{log\_disparos.txt} en formato secuencial. Al finalizar, el script \texttt{regex\_invariantes.py} valida recursivamente por medio de expresiones regulares que toda la cadena se componga de invariantes de transición válidos.
+\end{enumerate}
+
+\end{document}
