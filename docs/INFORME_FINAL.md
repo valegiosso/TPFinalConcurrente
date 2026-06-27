@@ -275,21 +275,37 @@ sequenceDiagram
 
 ## 5. Verificación de Invariantes mediante Expresiones Regulares
 
-Para cumplir con el **Requerimiento 13** del enunciado, se diseñó e implementó un validador basado en expresiones regulares ([regex.py](file:///d:/facultad/concurrente/TPFinalConcurrente/codigo/regex.py)) para auditar el archivo `log_disparos.txt`.
+Para cumplir con el **Requerimiento 13** del enunciado, se diseñó e implementó un validador basado en expresiones regulares ([regex_invariantes.py](file:///d:/facultad/concurrente/TPFinalConcurrente/codigo/regex_invariantes.py)) para auditar el archivo `log_disparos.txt`.
 
 ### 5.1. El Desafío del Entrelazamiento (Interleaving)
 
-Como el programa ejecuta múltiples hilos concurrentes simultáneos, los disparos de transiciones aparecen entrelazados en el log global. Por ejemplo, una secuencia del log como `T0, T1, T0, T6, T2, T7, T3, T8, T9, T9` mezcla el flujo de tarjetas con el de transferencias. Aplicar una regex directa sobre todo el archivo no es viable.
+Como el programa ejecuta múltiples hilos concurrentes simultáneos, los disparos de transiciones aparecen entrelazados en el log global. Por ejemplo, una secuencia del log como `T0, T1, T0, T6, T2, T7, T3, T8, T9, T9` mezcla el flujo de tarjetas con el de transferencias. Aplicar una regex directa y lineal sobre todo el archivo no es viable, ya que el log global no representa un lenguaje regular simple sino la entrelazación de tres lenguajes regulares distintos.
 
-#### Solución: Filtrado por Flujo
-El validador procesa el log separando las transiciones en tres strings de sub-secuencias independientes, uno para cada camino de procesamiento de la red, ignorando las transiciones comunes de inicio ($T_0$) y fin ($T_9$):
-*   **Sub-secuencia Tarjetas ($S_{T}$):** Filtra únicamente las apariciones de $T_1$, $T_2$ y $T_3$.
-*   **Sub-secuencia Alto Riesgo ($S_{AR}$):** Filtra únicamente las apariciones de $T_4$ y $T_5$.
-*   **Sub-secuencia Transferencias ($S_{TR}$):** Filtra únicamente las apariciones de $T_6$, $T_7$ y $T_8$.
+### 5.2. Fundamentos Teóricos: Lenguajes Regulares y Expresiones Regulares
 
-### 5.2. Justificación Formal de Seguridad (1-Boundedness)
+Una **expresión regular** es una notación algebraica que describe un conjunto de cadenas de caracteres denominado **lenguaje regular**. Todo lenguaje regular puede ser reconocido por un **Autómata Finito Determinístico (AFD)**, y equivalentemente puede expresarse mediante una expresión regular (Teorema de Kleene).
 
-Un aspecto clave en la validez del filtrado radica en responder: **¿Qué pasa si dos transacciones diferentes ingresan concurrentemente al mismo flujo?** Si esto ocurriera, se podrían registrar disparos alternados del mismo tipo (por ejemplo, `T1 -> T1 -> T2 -> T2 -> T3 -> T3`), lo que generaría un string filtrado `T1T1T2T2T3T3` que fallaría la validación de la regex lineal, arrojando falsos negativos.
+Los operadores fundamentales que componen las expresiones regulares son:
+
+| Operador | Notación | Descripción |
+|:---|:---:|:---|
+| **Concatenación** | `AB` | La cadena $A$ seguida inmediatamente de la cadena $B$. |
+| **Alternancia (Unión)** | `A\|B` | Coincide con $A$ o con $B$ (uno u otro). Implementa la elección no determinística. |
+| **Clausura de Kleene** | `A*` | Cero o más repeticiones de $A$. |
+| **Clausura Positiva** | `A+` | Una o más repeticiones de $A$ (equivalente a `AA*`). |
+| **Opcionalidad** | `A?` | Cero o una ocurrencia de $A$. |
+| **Punto** | `.` | Coincide con cualquier carácter (excepto salto de línea). |
+| **Agrupación** | `(A)` | Agrupa una subexpresión y captura su coincidencia para referencia posterior. |
+
+#### Grupos de Captura
+Un **grupo de captura** `(...)` cumple dos roles: agrupa subexpresiones a efectos lógicos (como aplicar un cuantificador a una secuencia completa) y almacena la subcadena coincidente en una referencia numerada `\g<N>` o `\N`. Esto permite reutilizar lo que fue capturado por el grupo $N$-ésimo, tanto dentro del patrón (backreferences) como en el texto de reemplazo de una operación de sustitución.
+
+#### Cuantificadores No Codiciosos (*Non-greedy*)
+Por defecto, los cuantificadores `*` y `+` son **codiciosos** (greedy): consumen la mayor cantidad posible de caracteres. El modificador `?` pospuesto (ej. `.*?`) los convierte en **no codiciosos** (lazy): consumen la menor cantidad posible, lo cual es imprescindible para aislar correctamente las ocurrencias más cortas de un patrón en presencia de texto intercalado.
+
+### 5.3. Justificación Formal de Seguridad (1-Boundedness)
+
+Un aspecto clave en la validez del método radica en responder: **¿Qué pasa si dos transacciones diferentes ingresan concurrentemente al mismo flujo?** Si esto ocurriera, se registrarían disparos alternados del mismo tipo (por ejemplo, `T1 → T1 → T2 → T2 → T3 → T3`), generando una cadena que rompe el orden esperado del invariante.
 
 La red de Petri bloquea este escenario a nivel estructural mediante los **Invariantes de Plaza**:
 *   El flujo de Tarjetas comparte el recurso representado en la plaza $P_7$ ($M_0(P_7) = 1$). El invariante de plaza asociado establece:
@@ -297,28 +313,68 @@ La red de Petri bloquea este escenario a nivel estructural mediante los **Invari
 *   El flujo de Transferencias comparte la plaza de recurso $P_8$ ($M_0(P_8) = 1$), regido por el invariante:
     $$M(P_8) + M(P_4) + M(P_5) + M(P_6) = 1$$
 
-Dado que la suma de tokens en las plazas intermedias de procesamiento de cada flujo no puede superar a 1, **nunca puede haber más de una transacción activa en un mismo flujo de manera simultánea**. La red es estrictamente **segura (1-bounded)** en sus caminos internos. Por lo tanto, el entrelazamiento intra-flujo es físicamente imposible, garantizando que el filtrado por flujo siempre produzca una secuencia ordenada perfecta para cada invariante.
+Dado que la suma de tokens en las plazas intermedias de cada flujo no puede superar 1, **nunca puede haber más de una transacción activa en un mismo flujo de manera simultánea**. La red es estrictamente **segura (1-bounded)** en sus caminos internos. Esto garantiza que el entrelazamiento intra-flujo sea físicamente imposible.
 
-### 5.3. Expresiones Regulares Utilizadas
+### 5.4. Diseño de la Expresión Regular Central
 
-Para cada sub-secuencia filtrada, el validador aplica expresiones regulares de coincidencia exacta:
+El script [regex_invariantes.py](file:///d:/facultad/concurrente/TPFinalConcurrente/codigo/regex_invariantes.py) trabaja sobre la cadena completa del log (con timestamps removidos), operando directamente sobre el flujo entrelazado sin requerir filtrado previo por flujo. Para ello se construyó una única expresión regular que reconoce **un invariante de transición completo**, en cualquiera de sus tres variantes, tolerando el interleaving de otras transiciones entre medias:
 
-*   **Tarjetas:** `^(T1T2T3)+$` (Coincide únicamente con repeticiones perfectas del ciclo de tarjetas)
-*   **Alto Riesgo:** `^(T4T5)+$` (Coincide únicamente con repeticiones perfectas del ciclo de alto riesgo)
-*   **Transferencias:** `^(T6T7T8)+$` (Coincide únicamente con repeticiones perfectas del ciclo de transferencias)
+```
+(T0)(.*?)((T1)(.*?)(T2)(.*?)(T3)|(T4)(.*?)(T5)|(T6)(.*?)(T7)(.*?)(T8))(.*?)(T9)
+```
 
-### 5.4. Funciones de Python utilizadas (`re`)
+La anatomía de esta expresión es la siguiente:
 
-El script `regex.py` hace uso de las funciones estándar de expresiones regulares en Python:
-*   `re.match()`: Para parsear el log y para validar que la sub-secuencia completa coincida con el patrón cíclico desde el inicio del string.
-*   `re.subn()`: Para contar la cantidad de ciclos completos detectados reemplazando los patrones por strings vacíos y leyendo el número de sustituciones realizadas.
-*   `re.search()`: En caso de que falle la validación, busca subpatrones incorrectos en cualquier parte del string para diagnosticar e informar en qué parte se rompió la secuencia esperada.
+| Fragmento | Grupo | Rol |
+|:---|:---:|:---|
+| `(T0)` | G1 | Ancla de inicio: la transición de admisión. |
+| `(.*?)` | G2 | Interleaving entre `T0` y el cuerpo del flujo. |
+| `(T1)(.*?)(T2)(.*?)(T3)` | G4–G8 | **Rama Tarjetas:** `T1`, luego `T2`, luego `T3`, con interleaving entre cada par. |
+| `\|` | — | **Alternancia:** separa las tres ramas posibles del flujo interno. |
+| `(T4)(.*?)(T5)` | G9–G11 | **Rama Alto Riesgo:** `T4` seguido de `T5` con interleaving. |
+| `\|` | — | **Alternancia.** |
+| `(T6)(.*?)(T7)(.*?)(T8)` | G12–G16 | **Rama Transferencias:** `T6`, `T7`, `T8` con interleaving. |
+| `(.*?)` | G17 | Interleaving entre el cuerpo del flujo y `T9`. |
+| `(T9)` | G18 | Ancla de cierre: la transición de liquidación. |
 
-### 5.5. Consistencia de Contadores Globales
+El uso de `(.*?)` (cuantificador no codicioso) entre cada token es lo que permite absorber cualquier cantidad de transiciones intercaladas de otros flujos concurrentes sin romper el reconocimiento del invariante propio.
+
+#### Determinación de la Rama Disparada
+
+La alternancia `|` dentro del grupo G3 genera grupos de captura opcionales: en un match dado, los grupos pertenecientes a las ramas no elegidas tendrán valor `None`. El script aprovecha esto para identificar qué flujo fue completado:
+
+*   Si el grupo G9 (`T4`) no es `None` → se completó un invariante **Alto Riesgo**.
+*   Si el grupo G12 (`T6`) no es `None` → se completó un invariante **Transferencias**.
+*   En caso contrario → se completó un invariante **Tarjetas**.
+
+#### Cadena de Reemplazo y Preservación del Interleaving
+
+Tras reconocer un invariante, la transición del log es la de *eliminar* la ocurrencia reconocida para que la siguiente iteración no la vuelva a contar. Sin embargo, no se puede eliminar el texto de los grupos de interleaving `(.*?)`, ya que esas subcadenas corresponden a partes de otros invariantes no procesados todavía. La cadena de reemplazo:
+
+```
+\g<2>\g<5>\g<7>\g<10>\g<13>\g<15>\g<17>
+```
+
+retiene únicamente el contenido capturado por los grupos de interleaving (G2, G5, G7, G10, G13, G15, G17), descartando las transiciones propias del invariante reconocido. Esto preserva el entrelazamiento residual de otros invariantes aún pendientes de validar.
+
+### 5.5. Mecanismo de Consumo Iterativo
+
+La validación no se realiza con una sola pasada, sino mediante un **ciclo de consumo** apoyado en la función `re.subn()`, que devuelve la cadena resultante tras las sustituciones junto con el número de sustituciones realizadas:
+
+1.  Se aplica `re.subn(regex, reemplazo, cadena)` sobre la cadena completa del log. En cada llamada, la función reemplaza **todas** las coincidencias no solapadas en una sola pasada.
+2.  Si el número de sustituciones es mayor que cero, la cadena reducida puede contener nuevas coincidencias que antes estaban "tapadas" por invariantes ya reconocidos. Se itera nuevamente sobre la cadena reducida.
+3.  El ciclo continúa hasta que `re.subn()` no encuentra ninguna coincidencia más (retorna 0 sustituciones).
+4.  Al final del ciclo, si la cadena resultante está **vacía**, todos los disparos del log han sido consumidos exactamente por invariantes válidos → **validación exitosa**. Si queda algún residuo, hay disparos que no pertenecen a ningún invariante completo → **validación fallida**.
+
+Formalmente, este procedimiento implementa la **reducción de la palabra** del lenguaje generado por los T-invariantes de la red hasta la palabra vacía $\varepsilon$, equivalente a demostrar que el log pertenece al lenguaje regular:
+$$L = \left( L_{tarjetas} \cup L_{altoRiesgo} \cup L_{transferencias} \right)^*$$
+donde cada $L_i$ es el lenguaje del T-invariante $i$-ésimo (con interleaving permitido).
+
+### 5.6. Consistencia de Contadores Globales
 
 Adicionalmente a las expresiones regulares, el script audita la consistencia general del sistema de acuerdo con la teoría de redes de Petri:
-1.  **Admisiones vs Liquidaciones:** Comprueba que la cantidad de transiciones de inicio sea igual a las de salida ($T_0 == T_9$).
-2.  **Ciclos vs Salidas:** Comprueba que la suma de los ciclos individuales detectados por las expresiones regulares coincida exactamente con las transacciones de salida ($T_{inv1} + T_{inv2} + T_{inv3} == T_9$).
+1.  **Admisiones vs Liquidaciones:** Comprueba que la cantidad de disparos de inicio sea igual a los de salida ($|T_0| == |T_9|$).
+2.  **Ciclos vs Salidas:** Comprueba que la suma de los invariantes individuales detectados coincida exactamente con las transacciones de salida ($|T_{inv1}| + |T_{inv2}| + |T_{inv3}| == |T_9|$).
 
 ---
 
@@ -326,7 +382,7 @@ Adicionalmente a las expresiones regulares, el script audita la consistencia gen
 
 La ejecución conjunta de la simulación multihilo en Java y el análisis automatizado en Python arrojó las siguientes conclusiones:
 
-*   **Correctitud Concurrente:** El cumplimiento de las expresiones regulares por flujo demuestra de manera inequívoca que no se produjeron condiciones de carrera ni disparos desordenados en el monitor.
+*   **Correctitud Concurrente:** El consumo total del log por parte de la expresión regular demuestra de manera inequívoca que no se produjeron condiciones de carrera ni disparos desordenados en el monitor. Cada transacción admitida completó exactamente uno de los tres invariantes de transición definidos por la red.
 *   **Estabilidad Temporal:** El monitor gestiona la sincronización temporal bloqueando y suspendiendo los hilos fuera del monitor durante los tiempos mínimos estipulados ($\alpha$) sin incurrir en deadlocks ni starvation de recursos.
 *   **Políticas de Decisión:** La inyección de `PoliticaPriorizada` resolvió correctamente los conflictos estructurales y temporales priorizando los canales de negocio necesarios, manteniéndose estable e inocua en la secuenciación de transiciones.
-*   **Conservación y Seguridad:** Los invariantes de plaza se mantuvieron constantes en cada disparo individual en runtime, y el total de transacciones admitidas fue exactamente igual a la suma de ciclos procesados e identificados por regex al final de la ejecución, validando el comportamiento formal y estable del software.
+*   **Conservación y Seguridad:** Los invariantes de plaza se mantuvieron constantes en cada disparo individual en runtime, y el total de transacciones admitidas fue exactamente igual a la suma de ciclos reconocidos e identificados por la regex al final de la ejecución, validando el comportamiento formal y estable del software.
