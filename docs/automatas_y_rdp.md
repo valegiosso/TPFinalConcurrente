@@ -251,3 +251,74 @@ Red de Petri del TP Final — A = (E, S, Q, f, g):
   q0 = M0 = [3,0,0,0,0,0,0,1,1,0]
   Qa = {M : contadorSalida >= 200}  (estados de aceptación)
 ```
+Viewed automatas_y_rdp.md:110-129
+
+## Desglose punto por punto de la regex
+
+```
+( T0 .* (T1 .* T2 .* T3 | T4 .* T5 | T6 .* T7 .* T8) .* T9 ){200}
+```
+
+---
+
+### 🔵 `T0`
+Literal — disparo obligatorio de la transición T0.  
+**Es el inicio de CUALQUIER invariante.** Ningún camino puede comenzar sin T0.
+
+---
+
+### 🔸 `.*`  *(primer .*)* 
+`.*` = "cualquier cosa, cualquier cantidad de veces".  
+Representa el **interleaving concurrente**: entre T0 y el cuerpo del invariante pueden intercalarse disparos de *otros* hilos que están ejecutando sus propios invariantes en paralelo.
+
+---
+
+### 🔀 `( ... | ... | ... )` — el OR de los 3 invariantes
+
+```
+(  T1 .* T2 .* T3   |   T4 .* T5   |   T6 .* T7 .* T8  )
+```
+
+Estos son los **3 caminos posibles** dentro de la red:
+
+| Rama | Invariante | Proceso |
+|---|---|---|
+| `T1 .* T2 .* T3` | **I1** | Tarjetas (3 pasos internos) |
+| `T4 .* T5` | **I2** | Alto Riesgo (2 pasos internos) |
+| `T6 .* T7 .* T8` | **I3** | Transferencias (3 pasos internos) |
+
+El `|` significa **OR exclusivo**: cada ejecución toma exactamente **uno** de los tres caminos.
+
+Los `.*` **dentro** de cada rama cumplen el mismo rol: permiten que otros disparos concurrentes se cuelen entre los pasos del mismo invariante.
+
+---
+
+### 🔸 `.*` *(segundo .*, al final)*
+Otro interleaving: entre el final del cuerpo (`T3`, `T5` o `T8`) y el cierre `T9` también pueden haberse intercalado disparos de otros hilos.
+
+---
+
+### 🔵 `T9`
+Literal — disparo obligatorio de cierre. **Todos los invariantes terminan en T9**, es la transición de salida de la red.
+
+---
+
+### 🔁 `{200}`
+El grupo completo se repite **exactamente 200 veces**.  
+Cada repetición = **un invariante completado** (una operación bancaria finalizada).  
+La red debe completar 200 para que la ejecución sea válida.
+
+---
+
+### Visión completa
+
+```
+(  T0  .*  (  T1.*T2.*T3  |  T4.*T5  |  T6.*T7.*T8  )  .*  T9  ){200}
+   │    │         │                │             │        │    │     │
+   │    │         └────────────────┴─────────────┘        │    │     │
+  inicio  │              uno de los 3 caminos              │   fin   repetir
+          │                                                │        200 veces
+          └──────── interleaving de otros hilos ───────────┘
+```
+
+> **En resumen:** la regex describe una cadena donde aparecen exactamente 200 bloques del tipo `T0 → {algún camino} → T9`, con cualquier cantidad de disparos ajenos intercalados entre medias.
