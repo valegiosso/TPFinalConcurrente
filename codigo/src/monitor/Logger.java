@@ -5,9 +5,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 /**
- * Registra los disparos de transiciones en un archivo de log.
- * Formato intermedio: cada linea tiene el numero de transicion y timestamp.
- * Al final se puede parsear con regex para validar invariantes de transicion.
+ * registra los disparos de transiciones en un archivo de log
  */
 public class Logger {
 
@@ -21,19 +19,12 @@ public class Logger {
         }
     }
 
-    /**
-     * Registra el disparo de una transicion.
-     * Formato: "T<numero> <timestamp_ms>"
-     */
     public synchronized void escribirDisparo(int transition) {
         if (writer != null) {
             writer.println("T" + transition + " " + System.currentTimeMillis());
         }
     }
 
-    /**
-     * Cierra el archivo de log.
-     */
     public void cerrarLog() {
         if (writer != null) {
             writer.flush();

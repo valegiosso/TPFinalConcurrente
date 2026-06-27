@@ -15,13 +15,13 @@ if not os.path.exists(ruta_log):
 with open(ruta_log, "r") as archivo:
     contenido = archivo.read()
 
-# Quedarse solo con las transiciones (sin timestamps) y unirlas: "T0T1T6T2..."
+# Quedarse solo con las transiciones (sin timestamps) y unirlas: T0T1T6T2...
 test_str = "".join(re.findall(r"T\d+", contenido))
 
 # Reconoce un invariante completo. Los (.*?) absorben el interleaving.
 regex = r"(T0)(.*?)((T1)(.*?)(T2)(.*?)(T3)|(T4)(.*?)(T5)|(T6)(.*?)(T7)(.*?)(T8))(.*?)(T9)"
 
-# Conserva solo los gaps (interleaving) y borra las transiciones del invariante.
+# Conserva solo los gaps (interleaving) y borra las transiciones del invariante
 reemplazo = r"\g<2>\g<5>\g<7>\g<10>\g<13>\g<15>\g<17>"
 
 invariantes_transicion = {
@@ -30,7 +30,7 @@ invariantes_transicion = {
     "Transferencias": 0,   # T0T6T7T8T9
 }
 
-# Cuenta cada invariante segun la rama que matcheo.
+# Cuenta cada invariante segun la rama que matcheo
 def reconocer_invariante(texto_a_iterar, iteraciones):
     for _ in range(iteraciones):
         match = re.search(regex, texto_a_iterar)
@@ -45,7 +45,7 @@ def reconocer_invariante(texto_a_iterar, iteraciones):
         start, end = match.span()
         texto_a_iterar = texto_a_iterar[:start] + texto_a_iterar[end:]
 
-# Reemplazar invariantes hasta que no quede ninguno.
+# Reemplazar invariantes hasta que no quede ninguno
 result = re.subn(regex, reemplazo, test_str)
 coincidencias = result[1]
 reconocer_invariante(test_str, result[1])
@@ -56,7 +56,7 @@ while result[1] > 0:
     coincidencias += result[1]
     reconocer_invariante(aux, result[1])
 
-# --- Reporte ---
+
 print("=" * 55)
 print("  VERIFICACION DE INVARIANTES DE TRANSICION (consumo)")
 print("=" * 55)
