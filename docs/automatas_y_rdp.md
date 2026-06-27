@@ -1,19 +1,26 @@
-﻿# Autómatas, Gramáticas Tipo 3 y su Relación con el TP Final
+# Autómatas, Gramáticas Tipo 3 y su Relación con el TP Final
 
 ---
 
 ## 1. ¿Qué es un Autómata?
 
-Un **autómata** es un modelo matemático de un sistema de cómputo.  
-Tiene tres partes fundamentales:
+Un **autómata** es un modelo matemático abstracto que representa a un sistema que cambia de estados en respuesta a una secuencia de estímulos o entradas.
 
-| Componente | Qué es |
-|---|---|
-| **Entrada** | Una cadena de símbolos (alfabeto Σ) |
-| **Estados** | Conjunto finito de configuraciones posibles |
-| **Transiciones** | Reglas de cambio de estado al leer un símbolo |
+### Definición Formal (dada en clase)
 
-El autómata **lee** símbolo a símbolo la cadena de entrada y **decide** si la acepta o rechaza según el estado final en que termina.
+Un autómata es una **quintupla**:
+
+> **A = (E, S, Q, f, g)**
+
+| Símbolo | Nombre | Descripción |
+|---|---|---|
+| **E** | Vocabulario de entrada | Conjunto finito de entradas. Sus elementos se llaman **entradas** o **símbolos de entrada**. |
+| **S** | Vocabulario de salida | Conjunto finito de salidas. Sus elementos se llaman **salidas** o **símbolos de salida**. |
+| **Q** | Conjunto de estados | Conjunto de estados posibles; puede ser finito o infinito. |
+| **f** | Función de transición | `f : E × Q → Q` — dado un par (entrada, estado actual) devuelve el **estado siguiente**. |
+| **g** | Función de salida | `g : E × Q → S` — dado un par (entrada, estado actual) devuelve un **símbolo de salida**. |
+
+El autómata **lee** símbolo a símbolo la cadena de entrada, aplica `f` para cambiar de estado y `g` para producir salida, y **decide** si la acepta o rechaza según el estado final en que termina.
 
 ---
 
@@ -35,53 +42,53 @@ Chomsky clasificó los lenguajes en 4 tipos según la gramática que los genera:
 
 ## 3. El Autómata Finito en Detalle
 
-Un **Autómata Finito Determinista (AFD)** se define como la 5-upla:
+Usando la notación de clase, un **Autómata Finito Determinista (AFD)** es la quintupla:
 
 ```
-M = (Q, Sigma, delta, q0, F)
+A = (E, S, Q, f, g)
 ```
 
-| Símbolo | Significado |
-|---|---|
-| **Q** | Conjunto finito de estados |
-| **Sigma** | Alfabeto (conjunto de símbolos de entrada) |
-| **delta** | Función de transición: delta: Q × Sigma → Q |
-| **q0** | Estado inicial |
-| **F** | Conjunto de estados de aceptación |
+| Símbolo | Nombre | Significado en el AFD |
+|---|---|---|
+| **E** | Vocabulario de entrada | Alfabeto: conjunto finito de símbolos de entrada |
+| **S** | Vocabulario de salida | Símbolos de salida (en AFD puro: aceptar/rechazar) |
+| **Q** | Conjunto de estados | Estados posibles del autómata |
+| **f** | Función de transición | `f : E × Q → Q` — devuelve el estado siguiente |
+| **g** | Función de salida | `g : E × Q → S` — devuelve el símbolo de salida |
 
-El autómata **acepta** una cadena `w` si, partiendo de `q0` y aplicando `delta` para cada símbolo de `w`, termina en un estado de `F`.
+El autómata **acepta** una cadena `w` si, partiendo del estado inicial `q0 ∈ Q` y aplicando `f` para cada símbolo de `w`, termina en un estado de aceptación.
 
 ---
 
 ## 4. La Relación con el TP Final
 
-### 4.1 ¿Cuál es el alfabeto Sigma en el TP Final?
+### 4.1 ¿Cuál es E (vocabulario de entrada) en el TP Final?
 
-> **Las transiciones `{T0, T1, T2, T3, T4, T5, T6, T7, T8, T9}`**
+> **E = {T0, T1, T2, T3, T4, T5, T6, T7, T8, T9}**
 
-Cada **disparo** de una transición es la lectura de **un símbolo**.  
+Cada **disparo** de una transición es la lectura de **un símbolo de E**.  
 La secuencia de disparos que genera la ejecución concurrente es la **cadena de entrada** al autómata.
 
-### 4.2 ¿Cuáles son los estados Q?
+### 4.2 ¿Cuál es Q (conjunto de estados) en el TP Final?
 
-Los **estados** del autómata corresponden al **marcado (M) de la Red de Petri**.  
-Cada vector de marcado `M = [P0, P1, ..., P9]` es un estado.
+Los **estados** del autómata corresponden al **marcado de la Red de Petri**.  
+Cada vector de marcado `M = [P0, P1, ..., P9]` es un elemento de Q.
 
-| Elemento | Valor |
+| Elemento A = (E,S,Q,f,g) | Valor en el TP Final |
 |---|---|
-| **Estado inicial q0** | `M0 = [3, 0, 0, 0, 0, 0, 0, 1, 1, 0]` |
-| **Estados de aceptación F** | Marcados donde `contadorSalida >= 200` |
+| **Estado inicial** `q0 ∈ Q` | `M0 = [3, 0, 0, 0, 0, 0, 0, 1, 1, 0]` |
+| **Estados de aceptación** ⊆ Q | Marcados donde `contadorSalida >= 200` |
 
-### 4.3 ¿Cuál es la función de transición delta?
+### 4.3 ¿Cuál es f (función de transición) en el TP Final?
 
 ```
-delta(M, Ti) = M + W(:, Ti)
+f(q, e) = f(M, Ti) = M + W(:, Ti)
 ```
 
 Esto es exactamente `rdp.disparar(transition)` en el código:
 
 ```java
-// RdP.java — esta ES la función de transición delta:
+// RdP.java — esta ES la función de transición f : E × Q → Q
 marcadoActual[i] = marcadoActual[i] + matIncidencia[i][transition];
 ```
 
@@ -126,21 +133,25 @@ uno de los tres invariantes.
 
 ## 6. El Mapa Completo: Teoría ↔ TP Final
 
+Usando la notación `A = (E, S, Q, f, g)`:
+
 ```
-TEORIA                          TP FINAL
+NOTACIÓN A=(E,S,Q,f,g)         TP FINAL
 ---------------------------------------------------------------------
-Alfabeto Sigma          <->     {T0, T1, T2, T3, T4, T5, T6, T7, T8, T9}
-Símbolo sigma en Sigma  <->     Un disparo de transición Ti
-Cadena w en Sigma*      <->     La secuencia de disparos en log_disparos.txt
-Estado q en Q           <->     Un marcado M de la Red de Petri
-Estado inicial q0       <->     M0 = [3, 0, 0, 0, 0, 0, 0, 1, 1, 0]
-Estado de aceptación F  <->     contadorSalida >= 200
-Función delta(q, sigma) <->     M_nuevo = M + W(:, Ti)  -> rdp.disparar()
-Lenguaje L(M)           <->     Todas las ejecuciones válidas de la red
-Invariante de transición<->     Una palabra del Lenguaje Regular
-Expresión Regular       <->     La regex en regex_invariantes.py
-Autómata Finito         <->     El motor de regex que valida el log
-Gramática Tipo 3        <->     Las reglas de producción de cada invariante
+E  (vocab. de entrada)   <->   {T0, T1, T2, T3, T4, T5, T6, T7, T8, T9}
+Símbolo e ∈ E            <->   Un disparo de transición Ti
+Cadena w ∈ E*            <->   La secuencia de disparos en log_disparos.txt
+S  (vocab. de salida)    <->   {VALIDO, INVALIDO} (resultado de la regex)
+Q  (estados)             <->   Marcados posibles M = [P0..P9]
+Estado inicial q0 ∈ Q    <->   M0 = [3, 0, 0, 0, 0, 0, 0, 1, 1, 0]
+Estados de aceptación⊆Q  <->   contadorSalida >= 200
+f(q, e)  (transición)    <->   M_nuevo = M + W(:, Ti)  -> rdp.disparar()
+g(q, e)  (salida)        <->   VALIDO si el marcado llega al estado final
+Lenguaje L(A)            <->   Todas las ejecuciones válidas de la red
+Invariante de transición <->   Una palabra del Lenguaje Regular
+Expresión Regular        <->   La regex en regex_invariantes.py
+Autómata Finito          <->   El motor de regex que valida el log
+Gramática Tipo 3         <->   Las reglas de producción de cada invariante
 ```
 
 ---
@@ -204,9 +215,13 @@ completamente la cadena (sin residuo), todos los invariantes se cumplieron corre
 R: Cada T-invariante es una **palabra** del lenguaje. El conjunto de ejecuciones válidas
 (200 invariantes completados con interleaving) es el **lenguaje regular** que reconoce el autómata.
 
-**P: ¿Cuál es la función de transición delta del autómata?**  
-R: delta(M, Ti) = M + W(:, Ti), implementada en rdp.disparar(). El nuevo estado (marcado)
+**P: ¿Cuál es la función de transición f del autómata?**  
+R: `f(q, e) = f(M, Ti) = M + W(:, Ti)`, implementada en `rdp.disparar()`. El nuevo estado (marcado)
 se obtiene sumando la columna correspondiente de la matriz de incidencia al marcado actual.
+
+**P: ¿Cuál es la función de salida g del autómata?**  
+R: `g(q, e)` devuelve VALIDO si tras aplicar `f` se alcanza un estado de aceptación (contadorSalida >= 200),
+o continúa acumulando disparos hasta completar los 200 invariantes.
 
 ---
 
@@ -227,10 +242,12 @@ Autómata Finito Determinista (AFD)
         |
         | implementado por
         v
-Red de Petri del TP Final:
-  Q     = marcados posibles [P0..P9]
-  Sigma = {T0, T1, T2, T3, T4, T5, T6, T7, T8, T9}
-  delta = rdp.disparar()  [M_nuevo = M + W(:,Ti)]
-  q0    = M0 = [3,0,0,0,0,0,0,1,1,0]
-  F     = {M : contadorSalida >= 200}
+Red de Petri del TP Final — A = (E, S, Q, f, g):
+  E  = {T0, T1, T2, T3, T4, T5, T6, T7, T8, T9}
+  S  = {VALIDO, INVALIDO}
+  Q  = marcados posibles [P0..P9]
+  f  = rdp.disparar()  [M_nuevo = M + W(:,Ti)]
+  g  = resultado de la regex sobre log_disparos.txt
+  q0 = M0 = [3,0,0,0,0,0,0,1,1,0]
+  Qa = {M : contadorSalida >= 200}  (estados de aceptación)
 ```
