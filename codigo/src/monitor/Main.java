@@ -34,8 +34,11 @@ public class Main {
                 Monitor monitor = new Monitor(rdp, politica);
 
                 // 4. CREAR E INICIAR HILOS
-                // asignacion de transiciones segun invariantes de transicion:
+                // Hilo dedicado para el Logger
+                Thread hiloLogger = new Thread(logger, "HiloLogger");
+                hiloLogger.start();
 
+                // asignacion de transiciones segun invariantes de transicion:
                 // todos los hilos usan la misma clase generica HiloBase; lo que los diferencia
                 // es el conjunto de transiciones que tienen asignado.
                 Thread hiloGenerador = new Thread(new HiloBase(monitor, new int[] { 0 }), "HiloGenerador");
@@ -66,10 +69,17 @@ public class Main {
                         System.err.println("Error esperando finalizacion de hilos: " + e.getMessage());
                 }
 
+                // Interrumpir y esperar la finalizacion del Logger para vaciar la cola y cerrar
+                // el archivo
+                hiloLogger.interrupt();
+                try {
+                        hiloLogger.join();
+                } catch (InterruptedException e) {
+                        System.err.println("Error esperando finalizacion del hilo Logger: " + e.getMessage());
+                }
+
                 long tiempoFin = System.currentTimeMillis();
                 long duracion = tiempoFin - tiempoInicio;
-
-                logger.cerrarLog();
 
                 System.out.println("========================================");
                 System.out.println("  EJECUCION FINALIZADA");
