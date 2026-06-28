@@ -25,8 +25,8 @@ public class Main {
                 // descomentar una u otra para probar:
 
                 Politica politica = new PoliticaAleatoria("Politica Aleatoria");
-                // Politica politica = new PoliticaPriorizada("Politica Priorizada", new int[] {
-                // 4, 5 });
+                // Politica politica = new PoliticaPriorizada("Politica Priorizada", new
+                // int[] { 4, 5 });
                 // prioriza alto riesgo
 
                 // 3. CREAR MONITOR
